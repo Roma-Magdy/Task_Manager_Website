@@ -6,22 +6,21 @@ import Textbox from "../components/Textbox";
 import Button from "../components/Button";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import axios from 'axios';
+import axios from "axios";
+import { toast } from "sonner"; // Assuming you have sonner installed from your App.jsx
 
 // Validation schemas
 const loginSchema = yup.object({
   email: yup.string().email("Invalid email").required("Email is required"),
-  password: yup.string()
-    .required("Password is required")
-    .min(9, "Password must be at least 9 characters"),
+  password: yup.string().required("Password is required"),
 });
 
 const signupSchema = yup.object({
-  fullName: yup.string().required("Name is required").min(2, "Enter a valid name"),
+  name: yup.string().required("Name is required").min(2, "Enter a valid name"),
   email: yup.string().email("Invalid email").required("Email is required"),
   password: yup.string()
     .required("Password is required")
-    .min(9, "Password must be at least 9 characters"),
+    .min(6, "Password must be at least 6 characters"),
 });
 
 const Login = () => {
@@ -30,49 +29,50 @@ const Login = () => {
 
   // Detect current URL mode
   const isSignupURL = location.pathname === "/sign-up";
-
   const [isSignup, setIsSignup] = useState(isSignupURL);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    // Sync state if URL changes
     setIsSignup(isSignupURL);
   }, [isSignupURL]);
 
   const form = useForm({
     resolver: yupResolver(isSignup ? signupSchema : loginSchema),
     mode: "onChange",
-    reValidateMode: "onChange",
   });
 
   const { register, handleSubmit, formState: { errors }, reset } = form;
 
-
   const onSubmit = async (data) => {
     try {
-      // 1. Your Backend URL (from the black terminal window)
-      const BASE_URL = "http://localhost:5258"; 
+      // 1. Determine the URL based on mode
+      const url = isSignup
+        ? "http://localhost:5000/api/auth/register"
+        : "http://localhost:5000/api/auth/login";
 
-      // 2. Decide if we are Logging in or Signing up
-      const url = isSignup 
-        ? `${BASE_URL}/api/Users/` 
-        : `${BASE_URL}/api/Users`;
-
-      console.log("Sending data to:", url);
-
-      // 3. Send the request
+      // 2. Make the API Call
       const response = await axios.post(url, data);
 
-      // 4. Handle Success
-      console.log("Success!", response.data);
-      alert("Success! " + (isSignup ? "Account created." : "Logged in."));
-      
-      // Navigate to dashboard
-      navigate("/dashboard");
-
+      // 3. Handle Success
+      if (isSignup) {
+        toast.success("Account created! Please login.");
+        navigate("/login");
+        setIsSignup(false);
+      } else {
+        toast.success("Login successful!");
+        
+        // Save user data & token
+        localStorage.setItem("user", JSON.stringify(response.data));
+        localStorage.setItem("token", response.data.token);
+        
+        // Redirect to Dashboard
+        navigate("/dashboard");
+      }
     } catch (error) {
-      console.error("Error connecting:", error);
-      alert("Failed: " + (error.response?.data?.message || error.message));
+      // 4. Handle Error
+      console.error(error);
+      const message = error.response?.data?.message || "Something went wrong";
+      toast.error(message);
     }
   };
 
@@ -89,7 +89,7 @@ const Login = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-blue-50 px-3">
       <div className="flex flex-col lg:flex-row w-full max-w-6xl bg-white shadow-2xl rounded-3xl overflow-hidden">
-
+        
         <div className="lg:w-1/2 bg-blue-900 text-white p-12 flex flex-col justify-center">
           <h1 className="text-5xl font-extrabold leading-tight">Task Flow</h1>
           <p className="text-lg mt-4 opacity-90">Manage all your tasks efficiently in one place.</p>
@@ -101,13 +101,13 @@ const Login = () => {
           </h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-
+            
             {isSignup && (
               <Textbox
                 label="Full Name"
                 type="text"
                 placeholder="Your Name"
-                register={register("fullName")}
+                register={register("name")}
                 error={errors.name?.message}
               />
             )}
@@ -129,7 +129,7 @@ const Login = () => {
                 error={errors.password?.message}
               />
               <div
-                className="absolute right-4 top-13 transform -translate-y-1/2 cursor-pointer text-gray-600"
+                className="absolute right-4 top-10 cursor-pointer text-gray-600"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
