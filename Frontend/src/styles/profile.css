@@ -1,0 +1,29 @@
+/* Profile-specific styles */
+input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+input::placeholder {
+  color: var(--foreground);
+  opacity: 0.4;
+}
+
+/* Added toggle switch styling */
+button {
+  cursor: pointer;
+}
+
+/* Error message styling */
+.text-red-500 {
+  color: #ef4444;
+}
+
+/* Toggle animations */
+@keyframes slideToggle {
+  0% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(24px);
+  }
+}

@@ -1,0 +1,30 @@
+/* Notifications page styles */
+.notifications-container {
+  min-height: 100vh;
+}
+
+.notification-card {
+  transition: all 0.3s ease;
+}
+
+.notification-card:hover {
+  transform: translateX(2px);
+}
+
+.notification-card.unread {
+  font-weight: 500;
+}
+
+/* Filter tabs */
+.filter-tab {
+  transition: all 0.2s ease;
+}
+
+.filter-tab:active {
+  transform: scale(0.98);
+}
+
+/* Smooth scrolling for notifications list */
+.notifications-list {
+  scroll-behavior: smooth;
+}
