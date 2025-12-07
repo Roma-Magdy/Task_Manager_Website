@@ -1,54 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, FolderKanban, Calendar, Users } from 'lucide-react';
+import axios from '../utils/axios';
 
 const ProjectsList = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock projects data
-  const projects = [
-    {
-      id: 1,
-      name: 'Website Redesign',
-      description: 'Complete overhaul of company website with modern UI/UX',
-      status: 'In Progress',
-      progress: 65,
-      dueDate: '2024-12-15',
-      teamMembers: 5,
-      tasksCount: { total: 24, completed: 16 },
-    },
-    {
-      id: 2,
-      name: 'Mobile App Development',
-      description: 'Native iOS and Android app for customer engagement',
-      status: 'In Progress',
-      progress: 40,
-      dueDate: '2025-01-30',
-      teamMembers: 8,
-      tasksCount: { total: 45, completed: 18 },
-    },
-    {
-      id: 3,
-      name: 'Marketing Campaign Q4',
-      description: 'Digital marketing campaign for product launch',
-      status: 'Planning',
-      progress: 15,
-      dueDate: '2024-12-31',
-      teamMembers: 4,
-      tasksCount: { total: 12, completed: 2 },
-    },
-    {
-      id: 4,
-      name: 'Database Migration',
-      description: 'Migrate legacy database to new cloud infrastructure',
-      status: 'Completed',
-      progress: 100,
-      dueDate: '2024-11-20',
-      teamMembers: 3,
-      tasksCount: { total: 18, completed: 18 },
-    },
-  ];
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/projects');
+      
+      if (response.data.success) {
+        // Transform the data to match the component's expected format
+        const transformedProjects = response.data.data.map(project => ({
+          id: project.project_id,
+          name: project.project_name,
+          description: project.description,
+          status: project.status,
+          progress: project.progress || 0,
+          dueDate: project.due_date ? new Date(project.due_date).toISOString().split('T')[0] : 'N/A',
+          teamMembers: project.member_count || 0,
+          tasksCount: {
+            total: project.task_count || 0,
+            completed: project.completed_tasks || 0
+          }
+        }));
+        setProjects(transformedProjects);
+      }
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      setError('Failed to load projects');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status) => {
     const colors = {
@@ -64,6 +58,26 @@ const ProjectsList = () => {
     project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     project.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-gray-600">Loading projects...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -97,8 +111,21 @@ const ProjectsList = () => {
       </div>
 
       {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProjects.map((project) => (
+      {filteredProjects.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-md p-12 text-center">
+          <FolderKanban className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Projects Found</h3>
+          <p className="text-gray-500 mb-6">Get started by creating your first project</p>
+          <button
+            onClick={() => navigate('/projects/new')}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all"
+          >
+            Create Project
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProjects.map((project) => (
           <div
             key={project.id}
             onClick={() => navigate(`/projects/${project.id}`)}
@@ -153,8 +180,9 @@ const ProjectsList = () => {
               </div>
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
