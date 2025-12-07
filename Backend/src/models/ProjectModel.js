@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const NotificationModel = require('./NotificationModel');
 
 class ProjectModel {
   /**
@@ -378,6 +379,26 @@ class ProjectModel {
       }
 
       await connection.commit();
+
+      // Notify project members about the update
+      if (fields.length > 0 || updateData.memberIds !== undefined) {
+        const [members] = await connection.query(
+          `SELECT user_id FROM project_members WHERE project_id = ?`,
+          [projectId]
+        );
+        const [[project]] = await connection.query(
+          `SELECT project_name FROM projects WHERE project_id = ?`,
+          [projectId]
+        );
+
+        const userIds = members.map(m => m.user_id);
+        if (userIds.length > 0 && updateData.updatedBy) {
+          NotificationModel.notifyProjectUpdate(
+            projectId, userIds, updateData.updatedBy, project.project_name, 'updated'
+          ).catch(err => console.error('Failed to send project update notification:', err));
+        }
+      }
+
       return true;
     } catch (error) {
       await connection.rollback();

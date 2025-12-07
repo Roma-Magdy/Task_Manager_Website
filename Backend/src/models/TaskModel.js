@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const NotificationModel = require('./NotificationModel');
 
 class TaskModel {
   // Get all tasks for a user (tasks assigned to them or created by them)
@@ -142,6 +143,15 @@ class TaskModel {
           `INSERT INTO task_assignments (task_id, user_id) VALUES ?`,
           [assignmentValues]
         );
+
+        // Notify assigned users
+        for (const assignedUserId of taskData.assignedUsers) {
+          if (assignedUserId !== userId) {
+            NotificationModel.notifyTaskAssigned(taskId, assignedUserId, userId, taskData.title).catch(err => 
+              console.error('Failed to send task assignment notification:', err)
+            );
+          }
+        }
       }
 
       // Handle attachments if provided
@@ -231,10 +241,34 @@ class TaskModel {
            VALUES (?, ?, ?, ?)`,
           [taskId, oldTask.status, taskData.status, userId]
         );
+
+        // Get assigned users and task title for notification
+        const [[task]] = await connection.query(
+          `SELECT title FROM tasks WHERE task_id = ?`,
+          [taskId]
+        );
+        const [assignedUsers] = await connection.query(
+          `SELECT user_id FROM task_assignments WHERE task_id = ?`,
+          [taskId]
+        );
+        
+        const userIds = assignedUsers.map(u => u.user_id);
+        if (userIds.length > 0) {
+          NotificationModel.notifyTaskStatusChanged(
+            taskId, userIds, userId, task.title, oldTask.status, taskData.status
+          ).catch(err => console.error('Failed to send status change notification:', err));
+        }
       }
 
       // Update assignments if provided
       if (taskData.assignedUsers !== undefined) {
+        // Get old assignments for comparison
+        const [oldAssignments] = await connection.query(
+          `SELECT user_id FROM task_assignments WHERE task_id = ?`,
+          [taskId]
+        );
+        const oldUserIds = oldAssignments.map(a => a.user_id);
+
         // Remove old assignments
         await connection.query(
           `DELETE FROM task_assignments WHERE task_id = ?`,
@@ -248,6 +282,20 @@ class TaskModel {
             `INSERT INTO task_assignments (task_id, user_id) VALUES ?`,
             [assignmentValues]
           );
+
+          // Notify newly assigned users
+          const [[task]] = await connection.query(
+            `SELECT title FROM tasks WHERE task_id = ?`,
+            [taskId]
+          );
+          const newUserIds = taskData.assignedUsers.filter(uid => !oldUserIds.includes(uid));
+          for (const assignedUserId of newUserIds) {
+            if (assignedUserId !== userId) {
+              NotificationModel.notifyTaskAssigned(taskId, assignedUserId, userId, task.title).catch(err => 
+                console.error('Failed to send task assignment notification:', err)
+              );
+            }
+          }
         }
       }
 
@@ -281,6 +329,26 @@ class TaskModel {
         `INSERT INTO comments (task_id, user_id, comment_text) VALUES (?, ?, ?)`,
         [taskId, userId, commentText]
       );
+
+      // Get task title and assigned users for notification
+      const [[task]] = await db.query(
+        `SELECT title FROM tasks WHERE task_id = ?`,
+        [taskId]
+      );
+      const [assignedUsers] = await db.query(
+        `SELECT DISTINCT user_id FROM task_assignments WHERE task_id = ?
+         UNION
+         SELECT created_by FROM tasks WHERE task_id = ?`,
+        [taskId, taskId]
+      );
+
+      const userIds = assignedUsers.map(u => u.user_id).filter(id => id !== null);
+      if (userIds.length > 0) {
+        NotificationModel.notifyNewComment(taskId, userIds, userId, task.title).catch(err =>
+          console.error('Failed to send comment notification:', err)
+        );
+      }
+
       return result.insertId;
     } catch (error) {
       throw error;
@@ -315,6 +383,26 @@ class TaskModel {
           attachmentData.file_type
         ]
       );
+
+      // Get task title and assigned users for notification
+      const [[task]] = await db.query(
+        `SELECT title FROM tasks WHERE task_id = ?`,
+        [taskId]
+      );
+      const [assignedUsers] = await db.query(
+        `SELECT DISTINCT user_id FROM task_assignments WHERE task_id = ?
+         UNION
+         SELECT created_by FROM tasks WHERE task_id = ?`,
+        [taskId, taskId]
+      );
+
+      const userIds = assignedUsers.map(u => u.user_id).filter(id => id !== null);
+      if (userIds.length > 0) {
+        NotificationModel.notifyNewAttachment(
+          taskId, userIds, userId, task.title, attachmentData.file_name
+        ).catch(err => console.error('Failed to send attachment notification:', err));
+      }
+
       return result.insertId;
     } catch (error) {
       throw error;
