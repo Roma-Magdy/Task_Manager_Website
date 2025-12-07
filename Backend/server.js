@@ -4,8 +4,10 @@ const cors = require('cors');
 
 // Import Routes
 const authRoutes = require('./src/routes/authRoutes');
-const userRoutes = require('./src/routes/userRoutes'); 
-// const taskRoutes = require('./src/routes/taskRoutes'); // <--- Commented out for now
+const userRoutes = require('./src/routes/userRoutes');
+const taskRoutes = require('./src/routes/taskRoutes');
+const projectRoutes = require('./src/routes/projectRoutes');
+const notificationRoutes = require('./src/routes/notificationRoutes');
 
 const app = express();
 
@@ -18,8 +20,10 @@ require('./src/config/db');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes); 
-// app.use('/api/tasks', taskRoutes); //
+app.use('/api/users', userRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');
