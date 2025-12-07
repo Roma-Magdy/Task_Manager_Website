@@ -1,81 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Users, CheckCircle, Clock, ListTodo, Edit, Trash2, Download, File } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, CheckCircle, Clock, ListTodo, Edit, Trash2 } from 'lucide-react';
 
 const ProjectDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState(null);
 
-  // Fetch project data on component load
-  useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        setLoading(true);
-        // Replace with your actual API call:
-        // const response = await fetch(`/api/projects/${id}`);
-        // const projectData = await response.json();
-        
-        // Mock project data
-        const mockProject = {
-          id: id,
-          name: 'Website Redesign',
-          description: 'Complete overhaul of company website with modern UI/UX. This includes redesigning all major pages, implementing responsive design, and improving overall user experience.',
-          status: 'In Progress',
-          progress: 65,
-          dueDate: '2024-12-15',
-          createdDate: '2024-10-01',
-          attachments: [
-            { id: 1, name: 'wireframes.pdf', size: '1024', type: 'application/pdf' },
-            { id: 2, name: 'design-mockup.png', size: '2048', type: 'image/png' },
-            { id: 3, name: 'project-scope.docx', size: '512', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
-          ],
-          teamMembers: [
-            { id: 1, name: 'John Doe', role: 'Project Manager', avatar: 'JD' },
-            { id: 2, name: 'Jane Smith', role: 'Designer', avatar: 'JS' },
-            { id: 3, name: 'Mike Johnson', role: 'Developer', avatar: 'MJ' },
-            { id: 4, name: 'Sarah Wilson', role: 'Developer', avatar: 'SW' },
-            { id: 5, name: 'Tom Brown', role: 'QA Tester', avatar: 'TB' },
-          ],
-          tasks: [
-            { id: 1, title: 'Design homepage mockup', status: 'Completed', priority: 'High', assignee: 'Jane Smith' },
-            { id: 2, title: 'Develop navigation component', status: 'In Progress', priority: 'High', assignee: 'Mike Johnson' },
-            { id: 3, title: 'Create about page design', status: 'Completed', priority: 'Medium', assignee: 'Jane Smith' },
-            { id: 4, title: 'Implement responsive layouts', status: 'In Progress', priority: 'High', assignee: 'Sarah Wilson' },
-            { id: 5, title: 'Set up testing environment', status: 'To-Do', priority: 'Medium', assignee: 'Tom Brown' },
-            { id: 6, title: 'Write user documentation', status: 'To-Do', priority: 'Low', assignee: 'John Doe' },
-          ],
-        };
-        setProject(mockProject);
-      } catch (error) {
-        console.error('Error fetching project:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProject();
-  }, [id]);
-
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
-      console.log('Deleting project:', id);
-      alert('Project deleted successfully!');
-      navigate('/projects');
-    }
+  // Mock project data
+  const project = {
+    id: id,
+    name: 'Website Redesign',
+    description: 'Complete overhaul of company website with modern UI/UX. This includes redesigning all major pages, implementing responsive design, and improving overall user experience.',
+    status: 'In Progress',
+    progress: 65,
+    dueDate: '2024-12-15',
+    createdDate: '2024-10-01',
+    teamMembers: [
+      { id: 1, name: 'John Doe', role: 'Project Manager', avatar: 'JD' },
+      { id: 2, name: 'Jane Smith', role: 'Designer', avatar: 'JS' },
+      { id: 3, name: 'Mike Johnson', role: 'Developer', avatar: 'MJ' },
+      { id: 4, name: 'Sarah Wilson', role: 'Developer', avatar: 'SW' },
+      { id: 5, name: 'Tom Brown', role: 'QA Tester', avatar: 'TB' },
+    ],
+    tasks: [
+      { id: 1, title: 'Design homepage mockup', status: 'Completed', priority: 'High', assignee: 'Jane Smith' },
+      { id: 2, title: 'Develop navigation component', status: 'In Progress', priority: 'High', assignee: 'Mike Johnson' },
+      { id: 3, title: 'Create about page design', status: 'Completed', priority: 'Medium', assignee: 'Jane Smith' },
+      { id: 4, title: 'Implement responsive layouts', status: 'In Progress', priority: 'High', assignee: 'Sarah Wilson' },
+      { id: 5, title: 'Set up testing environment', status: 'To-Do', priority: 'Medium', assignee: 'Tom Brown' },
+      { id: 6, title: 'Write user documentation', status: 'To-Do', priority: 'Low', assignee: 'John Doe' },
+    ],
   };
 
-  const handleDownloadAttachment = (attachment) => {
-    console.log('Downloading:', attachment.name);
-    alert(`Downloading ${attachment.name}...`);
-  };
-
-  const handleDeleteAttachment = (attachmentId) => {
-    setProject(prev => ({
-      ...prev,
-      attachments: prev.attachments.filter(att => att.id !== attachmentId)
-    }));
+  const taskStats = {
+    total: project.tasks.length,
+    completed: project.tasks.filter(t => t.status === 'Completed').length,
+    inProgress: project.tasks.filter(t => t.status === 'In Progress').length,
+    todo: project.tasks.filter(t => t.status === 'To-Do').length,
   };
 
   const getStatusColor = (status) => {
@@ -97,37 +58,6 @@ const ProjectDetails = () => {
     return colors[priority] || 'bg-gray-100 text-gray-800';
   };
 
-  const getFileIcon = (fileType) => {
-    if (fileType.includes('image')) return '🖼️';
-    if (fileType.includes('pdf')) return '📄';
-    if (fileType.includes('word') || fileType.includes('document')) return '📝';
-    if (fileType.includes('sheet') || fileType.includes('excel')) return '📊';
-    return '📎';
-  };
-
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <p className="text-gray-600 text-center">Loading project...</p>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <p className="text-gray-600 text-center">Project not found</p>
-      </div>
-    );
-  }
-
-  const taskStats = {
-    total: project.tasks.length,
-    completed: project.tasks.filter(t => t.status === 'Completed').length,
-    inProgress: project.tasks.filter(t => t.status === 'In Progress').length,
-    todo: project.tasks.filter(t => t.status === 'To-Do').length,
-  };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -147,17 +77,11 @@ const ProjectDetails = () => {
             </span>
           </div>
           <div className="flex gap-3">
-            <button 
-              onClick={() => navigate(`/projects/${project.id}/edit`)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
-            >
+            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all">
               <Edit className="w-4 h-4" />
               Edit
             </button>
-            <button 
-              onClick={handleDelete}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
-            >
+            <button className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all">
               <Trash2 className="w-4 h-4" />
               Delete
             </button>
@@ -233,42 +157,6 @@ const ProjectDetails = () => {
         </div>
       </div>
 
-      {/* Attachments Section */}
-      {project.attachments.length > 0 && (
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Attachments</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {project.attachments.map((attachment) => (
-              <div key={attachment.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition">
-                <div className="flex items-center gap-3 flex-1">
-                  <span className="text-2xl">{getFileIcon(attachment.type)}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{attachment.name}</p>
-                    <p className="text-xs text-gray-500">{attachment.size} KB</p>
-                  </div>
-                </div>
-                <div className="flex gap-2 ml-2">
-                  <button
-                    onClick={() => handleDownloadAttachment(attachment)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                    title="Download"
-                  >
-                    <Download size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteAttachment(attachment.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                    title="Delete"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Team Members */}
       <div className="bg-white rounded-xl shadow-md p-6 mb-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Team Members</h2>
@@ -302,11 +190,7 @@ const ProjectDetails = () => {
             </thead>
             <tbody>
               {project.tasks.map((task) => (
-                <tr 
-                  key={task.id} 
-                  onClick={() => navigate(`/task/${task.id}`)}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
+                <tr key={task.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="py-3 px-4 text-gray-900">{task.title}</td>
                   <td className="py-3 px-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>

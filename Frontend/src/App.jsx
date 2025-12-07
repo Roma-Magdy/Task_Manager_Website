@@ -16,6 +16,7 @@ import './App.css';
 import Landing from './pages/Landing';
 import Profile from './pages/Profile';
 import NotificationsPage from "./pages/Notification"
+import EditProject from './pages/EditProject';
 import { useToast, ToastContainer } from "./components/Toast"
 function App() {
   const [count, setCount] = useState(0);
@@ -29,7 +30,7 @@ function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Navigate to='/landing' />} />
             <Route path="/landing" element={<Landing />} />
-
+            <Route path="/projects/:id/edit" element={<EditProject />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projects" element={<ProjectsList />} />
             <Route path="/projects/new" element={<CreateProject />} />
