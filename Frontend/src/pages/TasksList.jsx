@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Plus, Calendar, User, AlertCircle } from 'lucide-react';
+import axios from '../utils/axios';
+import { toast } from 'sonner';
 
 const TasksList = () => {
   const navigate = useNavigate();
@@ -10,101 +12,73 @@ const TasksList = () => {
   const [selectedUser, setSelectedUser] = useState('All');
   const [sortBy, setSortBy] = useState('dueDate');
   const [showFilters, setShowFilters] = useState(false);
+  const [allTasks, setAllTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock tasks data
-  const allTasks = [
-    {
-      id: 1,
-      title: 'Design homepage mockup',
-      description: 'Create modern homepage design with new branding',
-      status: 'In Progress',
-      priority: 'High',
-      assignee: 'Jane Smith',
-      project: 'Website Redesign',
-      dueDate: '2024-12-01',
-      createdDate: '2024-11-15',
-    },
-    {
-      id: 2,
-      title: 'Fix login bug',
-      description: 'Resolve authentication issue in production',
-      status: 'To-Do',
-      priority: 'Critical',
-      assignee: 'Mike Johnson',
-      project: 'Bug Fixes',
-      dueDate: '2024-11-30',
-      createdDate: '2024-11-28',
-    },
-    {
-      id: 3,
-      title: 'Update documentation',
-      description: 'Update API documentation with new endpoints',
-      status: 'Completed',
-      priority: 'Low',
-      assignee: 'Sarah Wilson',
-      project: 'Documentation',
-      dueDate: '2024-11-28',
-      createdDate: '2024-11-20',
-    },
-    {
-      id: 4,
-      title: 'Code review for PR #123',
-      description: 'Review and approve payment gateway integration',
-      status: 'In Progress',
-      priority: 'Medium',
-      assignee: 'Tom Brown',
-      project: 'Mobile App',
-      dueDate: '2024-12-02',
-      createdDate: '2024-11-25',
-    },
-    {
-      id: 5,
-      title: 'Setup CI/CD pipeline',
-      description: 'Configure automated testing and deployment',
-      status: 'To-Do',
-      priority: 'High',
-      assignee: 'Mike Johnson',
-      project: 'DevOps',
-      dueDate: '2024-12-05',
-      createdDate: '2024-11-27',
-    },
-    {
-      id: 6,
-      title: 'Database optimization',
-      description: 'Optimize slow queries and add indexes',
-      status: 'In Progress',
-      priority: 'Medium',
-      assignee: 'Jane Smith',
-      project: 'Performance',
-      dueDate: '2024-12-03',
-      createdDate: '2024-11-22',
-    },
-    {
-      id: 7,
-      title: 'User testing session',
-      description: 'Conduct usability testing with 10 users',
-      status: 'To-Do',
-      priority: 'Low',
-      assignee: 'Sarah Wilson',
-      project: 'UX Research',
-      dueDate: '2024-12-10',
-      createdDate: '2024-11-26',
-    },
-    {
-      id: 8,
-      title: 'Security audit',
-      description: 'Perform comprehensive security review',
-      status: 'To-Do',
-      priority: 'Critical',
-      assignee: 'Tom Brown',
-      project: 'Security',
-      dueDate: '2024-11-29',
-      createdDate: '2024-11-24',
-    },
-  ];
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/tasks');
+      
+      // Map backend data to frontend format
+      const mappedTasks = response.data.data.map(task => ({
+        id: task.task_id,
+        title: task.title,
+        description: task.description,
+        status: formatStatus(task.status),
+        priority: formatPriority(task.priority),
+        assignee: task.assigned_users || 'Unassigned',
+        project: task.project_name || 'No Project',
+        dueDate: task.due_date,
+        createdDate: task.created_at,
+        category: task.category
+      }));
+      
+      setAllTasks(mappedTasks);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      toast.error('Failed to load tasks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatStatus = (status) => {
+    const statusMap = {
+      'todo': 'To-Do',
+      'in_progress': 'In Progress',
+      'done': 'Completed',
+      'blocked': 'Blocked'
+    };
+    return statusMap[status] || status;
+  };
+
+  const formatPriority = (priority) => {
+    const priorityMap = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'critical': 'Critical'
+    };
+    return priorityMap[priority] || priority;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   // Get unique users for filter
-  const users = ['All', ...new Set(allTasks.map(task => task.assignee))];
+  const users = ['All', ...new Set(allTasks.map(task => task.assignee || 'Unassigned'))];
 
   // Filter tasks
   const filteredTasks = allTasks.filter(task => {
@@ -150,6 +124,7 @@ const TasksList = () => {
       'To-Do': 'bg-blue-100 text-blue-800 border-blue-200',
       'In Progress': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'Completed': 'bg-green-100 text-green-800 border-green-200',
+      'Blocked': 'bg-red-100 text-red-800 border-red-200',
     };
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
@@ -157,6 +132,16 @@ const TasksList = () => {
   const isOverdue = (dueDate) => {
     return new Date(dueDate) < new Date() && new Date(dueDate).toDateString() !== new Date().toDateString();
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-xl text-gray-600">Loading tasks...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -274,7 +259,7 @@ const TasksList = () => {
                       <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
                         <span className="font-medium">{task.project}</span>
                         <span className="text-gray-300">•</span>
-                        <span>Created {task.createdDate}</span>
+                        <span>Created {formatDate(task.createdDate)}</span>
                       </div>
                     </div>
                   </div>
@@ -304,7 +289,7 @@ const TasksList = () => {
                   }`}>
                     <Calendar className={`w-4 h-4 ${isOverdue(task.dueDate) ? 'text-red-600' : 'text-gray-600'}`} />
                     <span className={`text-xs ${isOverdue(task.dueDate) ? 'text-red-700 font-medium' : 'text-gray-700'}`}>
-                      {task.dueDate}
+                      {formatDate(task.dueDate)}
                     </span>
                     {isOverdue(task.dueDate) && (
                       <AlertCircle className="w-4 h-4 text-red-600" />

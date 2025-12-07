@@ -2,6 +2,8 @@ import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { ChevronLeft, Edit, Trash2, Calendar, Download } from "lucide-react"
 import CommentSection from "../components/CommentSection"
+import axios from "../utils/axios"
+import { toast } from "sonner"
 
 export default function TaskDetails() {
   const { id } = useParams()
@@ -10,47 +12,75 @@ export default function TaskDetails() {
   const [task, setTask] = useState(null)
 
   useEffect(() => {
-    const fetchTask = async () => {
-      try {
-        setLoading(true)
-        // Replace with actual API call:
-        // const response = await fetch(`/api/tasks/${id}`);
-        // const taskData = await response.json();
-
-        const mockTask = {
-          id: 2,
-          title: "Fix login bug",
-          description:
-            "Resolve authentication issue in production. Users are unable to log in with their credentials. This is a critical issue affecting all users.",
-          status: "To-Do",
-          priority: "Critical",
-          category: "Bug Fixes",
-          assignee: "Mike Johnson",
-          dueDate: "2025-11-30",
-          createdDate: "2025-11-28",
-          project: "Security",
-          attachments: [
-            { id: 1, name: "error-logs.txt", size: "512", type: "text/plain" },
-            { id: 2, name: "reproduction-steps.pdf", size: "1024", type: "application/pdf" },
-            { id: 3, name: "debug-screenshot.png", size: "2048", type: "image/png" },
-          ],
-        }
-        setTask(mockTask)
-      } catch (error) {
-        console.error("Error fetching task:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchTask()
   }, [id])
 
-  const handleDelete = () => {
+  const fetchTask = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.get(`/tasks/${id}`)
+      
+      const taskData = response.data.data
+      
+      // Map backend data to frontend format
+      setTask({
+        id: taskData.task_id,
+        title: taskData.title,
+        description: taskData.description,
+        status: formatStatus(taskData.status),
+        priority: formatPriority(taskData.priority),
+        category: taskData.category,
+        assignee: taskData.assigned_users || "Unassigned",
+        dueDate: taskData.due_date,
+        createdDate: taskData.created_at,
+        project: taskData.project_name || "No Project",
+        attachments: taskData.attachments?.map(att => ({
+          id: att.attachment_id,
+          name: att.file_name,
+          size: att.file_size,
+          type: att.file_type,
+          path: att.file_path
+        })) || [],
+        comments: taskData.comments || []
+      })
+    } catch (error) {
+      console.error("Error fetching task:", error)
+      toast.error("Failed to load task details")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatStatus = (status) => {
+    const statusMap = {
+      'todo': 'To-Do',
+      'in_progress': 'In Progress',
+      'done': 'Completed',
+      'blocked': 'Blocked'
+    }
+    return statusMap[status] || status
+  }
+
+  const formatPriority = (priority) => {
+    const priorityMap = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High',
+      'critical': 'Critical'
+    }
+    return priorityMap[priority] || priority
+  }
+
+  const handleDelete = async () => {
     if (window.confirm("Are you sure you want to delete this task?")) {
-      // Replace with actual API call:
-      // await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
-      navigate("/tasks")
+      try {
+        await axios.delete(`/tasks/${id}`)
+        toast.success("Task deleted successfully")
+        navigate("/tasks")
+      } catch (error) {
+        console.error("Error deleting task:", error)
+        toast.error("Failed to delete task")
+      }
     }
   }
 
@@ -59,15 +89,24 @@ export default function TaskDetails() {
   }
 
   const handleDownloadAttachment = (attachment) => {
-    console.log("Downloading:", attachment.name)
-    alert(`Downloading ${attachment.name}...`)
+    const downloadUrl = `http://localhost:5000${attachment.path}`
+    window.open(downloadUrl, '_blank')
   }
 
-  const handleDeleteAttachment = (attachmentId) => {
-    setTask((prev) => ({
-      ...prev,
-      attachments: prev.attachments.filter((att) => att.id !== attachmentId),
-    }))
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (window.confirm("Are you sure you want to delete this attachment?")) {
+      try {
+        await axios.delete(`/tasks/${id}/attachments/${attachmentId}`)
+        toast.success("Attachment deleted successfully")
+        setTask((prev) => ({
+          ...prev,
+          attachments: prev.attachments.filter((att) => att.id !== attachmentId),
+        }))
+      } catch (error) {
+        console.error("Error deleting attachment:", error)
+        toast.error("Failed to delete attachment")
+      }
+    }
   }
 
   const getFileIcon = (fileType) => {
@@ -101,6 +140,16 @@ export default function TaskDetails() {
   const isOverdue = (dueDate) => {
     return new Date(dueDate) < new Date() && new Date(dueDate).toDateString() !== new Date().toDateString()
   }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   if (loading) {
     return (
@@ -171,7 +220,7 @@ export default function TaskDetails() {
                     <Calendar size={18} />
                     <span className="text-sm font-semibold">Created</span>
                   </div>
-                  <p className="text-gray-900 font-semibold">{task.createdDate}</p>
+                  <p className="text-gray-900 font-semibold">{formatDate(task.createdDate)}</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 text-gray-600 mb-2">
@@ -179,7 +228,8 @@ export default function TaskDetails() {
                     <span className="text-sm font-semibold">Due Date</span>
                   </div>
                   <p className={`font-semibold ${isOverdue(task.dueDate) ? "text-red-600" : "text-gray-900"}`}>
-                    {task.dueDate}
+                    {formatDate(task.dueDate)}
+                    {isOverdue(task.dueDate) && <span className="ml-2 text-sm">(Overdue)</span>}
                   </p>
                 </div>
               </div>
@@ -219,7 +269,7 @@ export default function TaskDetails() {
                 {task.attachments.map((attachment) => (
                   <div
                     key={attachment.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition"
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition w-fit"
                   >
                     <div className="flex items-center gap-3 flex-1">
                       <span className="text-2xl">{getFileIcon(attachment.type)}</span>
@@ -250,7 +300,7 @@ export default function TaskDetails() {
             </div>
           )}
 
-          <CommentSection taskId={id} />
+          <CommentSection taskId={id} comments={task.comments} onCommentAdded={fetchTask} />
         </div>
       </div>
     </div>

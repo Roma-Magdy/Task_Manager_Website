@@ -249,9 +249,11 @@
 //   );
 // }
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Calendar, Upload, Trash2, File } from 'lucide-react';
+import axios from '../utils/axios';
+import { toast } from 'sonner';
 
 export default function TaskCreate() {
   const navigate = useNavigate();
@@ -259,12 +261,39 @@ export default function TaskCreate() {
     title: '',
     description: '',
     category: '',
-    priority: 'Medium',
-    status: 'To-Do',
-    assignee: '',
+    priority: 'medium',
+    status: 'todo',
+    projectId: '',
     dueDate: '',
   });
   const [attachments, setAttachments] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [assignedUsers, setAssignedUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchProjects();
+    fetchUsers();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const response = await axios.get('/projects');
+      setProjects(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get('/users/all');
+      setUsers(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -282,9 +311,9 @@ export default function TaskCreate() {
         setAttachments(prev => [...prev, {
           id: Date.now() + Math.random(),
           name: file.name,
-          size: (file.size / 1024).toFixed(2),
+          size: (file.size / 1024).toFixed(2) + ' KB',
           type: file.type,
-          url: reader.result
+          data: reader.result
         }]);
       };
       reader.readAsDataURL(file);
@@ -295,12 +324,43 @@ export default function TaskCreate() {
     setAttachments(prev => prev.filter(att => att.id !== id));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Creating new task:', formData);
-    console.log('Attachments:', attachments);
-    alert('Task created successfully!');
-    navigate('/tasks');
+    
+    if (!formData.title.trim()) {
+      toast.error('Task title is required');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const taskData = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        priority: formData.priority,
+        status: formData.status,
+        projectId: formData.projectId || null,
+        dueDate: formData.dueDate || null,
+        assignedUsers: assignedUsers,
+        attachments: attachments.map(att => ({
+          name: att.name,
+          size: att.size,
+          type: att.type,
+          data: att.data
+        }))
+      };
+
+      await axios.post('/tasks', taskData);
+      toast.success('Task created successfully!');
+      navigate('/tasks');
+    } catch (error) {
+      console.error('Error creating task:', error);
+      toast.error('Failed to create task');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -392,39 +452,42 @@ export default function TaskCreate() {
                 />
               </div>
 
-              {/* Category and Priority */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Category
-                  </label>
-                  <input
-                    type="text"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    placeholder="e.g., Documentation, Bug Fixes"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Priority
-                  </label>
-                  <select
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option>Low</option>
-                    <option>Medium</option>
-                    <option>Critical</option>
-                  </select>
-                </div>
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Category
+                </label>
+                <input
+                  type="text"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  placeholder="e.g., Documentation, Bug Fixes"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
 
-              {/* Status and Assignee */}
+              {/* Project */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Project (Optional)
+                </label>
+                <select
+                  name="projectId"
+                  value={formData.projectId}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">No Project</option>
+                  {projects.map(project => (
+                    <option key={project.project_id} value={project.project_id}>
+                      {project.project_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status and Priority */}
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -436,24 +499,49 @@ export default function TaskCreate() {
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option>To-Do</option>
-                    <option>In Progress</option>
-                    <option>Completed</option>
+                    <option value="todo">To-Do</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="done">Completed</option>
+                    <option value="blocked">Blocked</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Assignee
+                    Priority
                   </label>
-                  <input
-                    type="text"
-                    name="assignee"
-                    value={formData.assignee}
+                  <select
+                    name="priority"
+                    value={formData.priority}
                     onChange={handleChange}
-                    placeholder="e.g., Sarah Wilson"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
                 </div>
+              </div>
+
+              {/* Assign Users */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Assign Users
+                </label>
+                <select
+                  multiple
+                  value={assignedUsers}
+                  onChange={(e) => setAssignedUsers(Array.from(e.target.selectedOptions, option => parseInt(option.value)))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  size="4"
+                >
+                  {users.map(user => (
+                    <option key={user.user_id} value={user.user_id}>
+                      {user.full_name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-sm text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple users</p>
               </div>
 
               {/* Due Date */}
@@ -545,20 +633,26 @@ export default function TaskCreate() {
               {/* Form Actions */}
               <div className="flex gap-3 pt-6 border-t border-gray-200">
                 <button
+                  type="submit"
                   onClick={handleSubmit}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition disabled:bg-blue-300 disabled:cursor-not-allowed"
                 >
-                  Create Task
+                  {loading ? 'Creating...' : 'Create Task'}
                 </button>
                 <button
+                  type="button"
                   onClick={resetForm}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-2 px-4 rounded-lg transition"
+                  disabled={loading}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
                 >
                   Clear
                 </button>
                 <button
+                  type="button"
                   onClick={() => navigate('/tasks')}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-lg transition"
+                  disabled={loading}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
                 >
                   Cancel
                 </button>
