@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import axios from "../utils/axios"
 
 const CreateProject = () => {
   const navigate = useNavigate()
@@ -86,14 +87,33 @@ const CreateProject = () => {
     setAttachments((prev) => prev.filter((att) => att.id !== id))
   }
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault()
     if (!validateForm()) return
-    console.log("New Project:", formData)
-    console.log("Tasks:", tasks)
-    console.log("Attachments:", attachments)
-    alert("Project created successfully!")
-    navigate("/projects")
+
+    try {
+      const projectData = {
+        name: formData.name,
+        description: formData.description,
+        dueDate: formData.dueDate,
+        status: formData.status,
+        assignMembers: formData.assignMembers,
+        tasks: tasks,
+        attachments: attachments
+      }
+
+      const response = await axios.post("/projects", projectData)
+
+      if (response.data.success) {
+        alert("Project created successfully!")
+        navigate("/projects")
+      } else {
+        alert("Failed to create project: " + response.data.message)
+      }
+    } catch (error) {
+      console.error("Error creating project:", error)
+      alert("An error occurred while creating the project")
+    }
   }
 
   const getFileIcon = (fileType) => {
