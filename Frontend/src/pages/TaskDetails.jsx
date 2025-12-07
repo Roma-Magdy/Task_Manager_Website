@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { ChevronLeft, Edit, Trash2, Calendar } from "lucide-react"
+import { ChevronLeft, Edit, Trash2, Calendar, Download } from "lucide-react"
 import CommentSection from "../components/CommentSection"
 
 export default function TaskDetails() {
@@ -29,6 +29,11 @@ export default function TaskDetails() {
           dueDate: "2025-11-30",
           createdDate: "2025-11-28",
           project: "Security",
+          attachments: [
+            { id: 1, name: "error-logs.txt", size: "512", type: "text/plain" },
+            { id: 2, name: "reproduction-steps.pdf", size: "1024", type: "application/pdf" },
+            { id: 3, name: "debug-screenshot.png", size: "2048", type: "image/png" },
+          ],
         }
         setTask(mockTask)
       } catch (error) {
@@ -51,6 +56,27 @@ export default function TaskDetails() {
 
   const handleEdit = () => {
     navigate(`/edit/${id}`)
+  }
+
+  const handleDownloadAttachment = (attachment) => {
+    console.log("Downloading:", attachment.name)
+    alert(`Downloading ${attachment.name}...`)
+  }
+
+  const handleDeleteAttachment = (attachmentId) => {
+    setTask((prev) => ({
+      ...prev,
+      attachments: prev.attachments.filter((att) => att.id !== attachmentId),
+    }))
+  }
+
+  const getFileIcon = (fileType) => {
+    if (fileType.includes("image")) return "🖼️"
+    if (fileType.includes("pdf")) return "📄"
+    if (fileType.includes("word") || fileType.includes("document")) return "📝"
+    if (fileType.includes("sheet") || fileType.includes("excel")) return "📊"
+    if (fileType.includes("text")) return "📋"
+    return "📎"
   }
 
   const getPriorityColor = (priority) => {
@@ -185,6 +211,44 @@ export default function TaskDetails() {
               </div>
             </div>
           </div>
+
+          {task.attachments && task.attachments.length > 0 && (
+            <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Attachments</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {task.attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="text-2xl">{getFileIcon(attachment.type)}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{attachment.name}</p>
+                        <p className="text-xs text-gray-500">{attachment.size} KB</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 ml-2">
+                      <button
+                        onClick={() => handleDownloadAttachment(attachment)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                        title="Download"
+                      >
+                        <Download size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAttachment(attachment.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <CommentSection taskId={id} />
         </div>
