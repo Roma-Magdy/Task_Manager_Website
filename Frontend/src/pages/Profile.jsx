@@ -1,9 +1,10 @@
 import { motion } from "framer-motion"
 import { Edit2, Mail, User, ArrowLeft, Check, Bell } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect, useContext } from "react"
 import { useNavigate } from "react-router-dom"
 import * as Yup from "yup"
-import { useContext } from "react"
+import axios from "axios"
+import { toast } from "sonner"
 import { NotificationContext } from "../context/NotificationContext"
 import "../styles/profile.css"
 
@@ -32,42 +33,68 @@ const profileValidationSchema = Yup.object().shape({
     .min(3, "Username must be at least 3 characters")
     .max(20, "Username must be at most 20 characters")
     .required("Username is required"),
-  email: Yup.string().email("Invalid email address").required("Email is required"),
   fullName: Yup.string().min(2, "Full name must be at least 2 characters").required("Full name is required"),
 })
 
-// const passwordValidationSchema = Yup.object().shape({
-//   currentPassword: Yup.string().required("Current password is required"),
-//   newPassword: Yup.string().min(6, "Password must be at least 6 characters").required("New password is required"),
-//   confirmPassword: Yup.string()
-//     .oneOf([Yup.ref("newPassword")], "Passwords must match")
-//     .required("Confirm password is required"),
-// })
-
 export default function Profile() {
   const navigate = useNavigate()
-  const { notificationPreferences, updatePreferences } = useContext(NotificationContext)
+  // We use local state for preferences here to ensure we are editing the DB values directly
+  // If you want to keep the Context sync, you can wrap the fetch in the context, 
+  // but for this page, we will manage it locally to ensure the API saves work.
 
   const [isEditing, setIsEditing] = useState(false)
-//   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
-  const [preferencesOpen, setPreferencesOpen] = useState(false)
-  const [showPasswords, setShowPasswords] = useState({})
+  const [loading, setLoading] = useState(true)
 
   const [formData, setFormData] = useState({
-    username: "Marina229",
-    email: "marina@gmail.com",
-    fullName: "Marina Maged",
+    username: "",
+    email: "",
+    fullName: "",
   })
 
-//   const [passwordData, setPasswordData] = useState({
-//     currentPassword: "",
-//     newPassword: "",
-//     confirmPassword: "",
-//   })
+  // Default preferences state
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    enabled: true,
+    somethingDue: true,
+    taskNotDone: true,
+    taskAssigned: true,
+    projectAssigned: true,
+  })
 
   const [errors, setErrors] = useState({})
-  const [passwordErrors, setPasswordErrors] = useState({})
   const [successMessage, setSuccessMessage] = useState("")
+
+  // 1. Fetch Profile Data on Mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem("token")
+        if (!token) {
+            navigate("/login")
+            return
+        }
+
+        const config = { headers: { Authorization: `Bearer ${token}` } }
+        const { data } = await axios.get("http://localhost:5000/api/users/profile", config)
+
+        setFormData({
+          username: data.username || "", // Maps to full_name in backend
+          email: data.email || "",
+          fullName: data.fullName || "",
+        })
+
+        if (data.preferences) {
+            setNotificationPreferences(data.preferences)
+        }
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching profile:", error)
+        toast.error("Failed to load profile data")
+        setLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [navigate])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -77,65 +104,71 @@ export default function Profile() {
     }
   }
 
+  // 2. Handle Profile Update (Name/Username)
   const handleSave = async () => {
     try {
       await profileValidationSchema.validate(formData, { abortEarly: false })
+      
+      const token = localStorage.getItem("token")
+      const config = { headers: { Authorization: `Bearer ${token}` } }
+
+      await axios.put("http://localhost:5000/api/users/profile", {
+        username: formData.username,
+        fullName: formData.fullName
+      }, config)
+
       setErrors({})
       setSuccessMessage("Profile updated successfully!")
       setTimeout(() => setSuccessMessage(""), 3000)
       setIsEditing(false)
-      console.log("[v0] Profile saved:", formData)
+      toast.success("Profile updated successfully")
     } catch (error) {
-      const newErrors = {}
-      error.inner.forEach((err) => {
-        newErrors[err.path] = err.message
-      })
-      setErrors(newErrors)
+      if (error.inner) {
+        // Validation errors
+        const newErrors = {}
+        error.inner.forEach((err) => {
+          newErrors[err.path] = err.message
+        })
+        setErrors(newErrors)
+      } else {
+        // API errors
+        console.error(error)
+        toast.error(error.response?.data?.message || "Update failed")
+      }
     }
   }
 
-//   const handlePasswordChange = async () => {
-//     try {
-//       await passwordValidationSchema.validate(passwordData, { abortEarly: false })
-//       setPasswordErrors({})
-//       setSuccessMessage("Password changed successfully!")
-//       setTimeout(() => setSuccessMessage(""), 3000)
-//       setPasswordData({
-//         currentPassword: "",
-//         newPassword: "",
-//         confirmPassword: "",
-//       })
-//       setChangePasswordOpen(false)
-//       console.log("[v0] Password changed")
-//     } catch (error) {
-//       const newErrors = {}
-//       error.inner.forEach((err) => {
-//         newErrors[err.path] = err.message
-//       })
-//       setPasswordErrors(newErrors)
-//     }
-//   }
+  // Helper to save preferences to Backend
+  const savePreferencesToBackend = async (newPrefs) => {
+      try {
+        const token = localStorage.getItem("token")
+        const config = { headers: { Authorization: `Bearer ${token}` } }
+        await axios.put("http://localhost:5000/api/users/profile/preferences", newPrefs, config)
+      } catch (error) {
+          console.error("Failed to save preferences", error)
+          toast.error("Failed to save settings")
+      }
+  }
 
-//   const handlePasswordInputChange = (e) => {
-//     const { name, value } = e.target
-//     setPasswordData((prev) => ({ ...prev, [name]: value }))
-//     if (passwordErrors[name]) {
-//       setPasswordErrors((prev) => ({ ...prev, [name]: "" }))
-//     }
-//   }
-
+  // 3. Handle Preference Toggles
   const handleNotificationToggle = (key) => {
     const newValue = !notificationPreferences[key]
-    updatePreferences({ [key]: newValue })
+    const newPrefs = { ...notificationPreferences, [key]: newValue }
+    
+    setNotificationPreferences(newPrefs) // Optimistic UI update
+    savePreferencesToBackend(newPrefs)
   }
 
   const handleNotificationEnabledToggle = () => {
     const newValue = !notificationPreferences.enabled
-    updatePreferences({ enabled: newValue })
+    const newPrefs = { ...notificationPreferences, enabled: newValue }
+    
+    setNotificationPreferences(newPrefs) // Optimistic UI update
+    savePreferencesToBackend(newPrefs)
   }
 
-  const togglePasswordVisibility = (field) => {
-    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }))
+  if (loading) {
+      return <div className="min-h-screen flex items-center justify-center bg-gray-50">Loading...</div>
   }
 
   return (

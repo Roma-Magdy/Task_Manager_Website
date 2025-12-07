@@ -1,7 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const authRoutes = require('./src/routes/authRoutes'); // <--- Import routes
+
+// Import Routes
+const authRoutes = require('./src/routes/authRoutes');
+const userRoutes = require('./src/routes/userRoutes'); 
+// const taskRoutes = require('./src/routes/taskRoutes'); // <--- Commented out for now
 
 const app = express();
 
@@ -12,8 +16,10 @@ app.use(express.json());
 // Database Connection
 require('./src/config/db');
 
-// Routes
-app.use('/api/auth', authRoutes); // 
+// Use Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes); 
+// app.use('/api/tasks', taskRoutes); //
 
 app.get('/', (req, res) => {
   res.send('API is running...');
