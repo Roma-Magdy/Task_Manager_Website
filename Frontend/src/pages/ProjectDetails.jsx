@@ -1,111 +1,153 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Download, Trash2, ArrowLeft, Edit2, Plus } from "lucide-react"
+import axios from "../utils/axios"
 
 const ProjectDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [project, setProject] = useState(null)
+  const [error, setError] = useState(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [availableMembers, setAvailableMembers] = useState([])
   const [selectedMembers, setSelectedMembers] = useState([])
   const [memberSearchInput, setMemberSearchInput] = useState("")
 
   useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        setLoading(true)
-        const mockProject = {
-          id: id,
-          name: "Website Redesign",
-          description:
-            "Complete overhaul of company website with modern UI/UX. This includes redesigning all major pages, implementing responsive design, and improving overall user experience.",
-          status: "In Progress",
-          progress: 65,
-          dueDate: "2024-12-15",
-          createdDate: "2024-10-01",
-          attachments: [
-            { id: 1, name: "wireframes.pdf", size: "1024", type: "application/pdf" },
-            { id: 2, name: "design-mockup.png", size: "2048", type: "image/png" },
-            {
-              id: 3,
-              name: "project-scope.docx",
-              size: "512",
-              type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            },
-          ],
-          teamMembers: [
-            { id: 1, name: "John Doe", role: "Project Manager" },
-            { id: 2, name: "Jane Smith", role: "Designer" },
-            { id: 3, name: "Mike Johnson", role: "Developer" },
-          ],
-          tasks: [
-            { id: 1, title: "Design homepage mockup", status: "Completed", priority: "High", assignee: "Jane Smith" },
-            {
-              id: 2,
-              title: "Develop navigation component",
-              status: "In Progress",
-              priority: "High",
-              assignee: "Mike Johnson",
-            },
-            {
-              id: 3,
-              title: "Create about page design",
-              status: "Completed",
-              priority: "Medium",
-              assignee: "Jane Smith",
-            },
-            {
-              id: 4,
-              title: "Implement responsive layouts",
-              status: "In Progress",
-              priority: "High",
-              assignee: "Sarah Wilson",
-            },
-            { id: 5, title: "Set up testing environment", status: "To-Do", priority: "Medium", assignee: "Tom Brown" },
-            { id: 6, title: "Write user documentation", status: "To-Do", priority: "Low", assignee: "John Doe" },
-          ],
-        }
-        setProject(mockProject)
-        setSelectedMembers(mockProject.teamMembers)
-
-        const allMembers = [
-          { id: 1, name: "John Doe", role: "Project Manager" },
-          { id: 2, name: "Jane Smith", role: "Designer" },
-          { id: 3, name: "Mike Johnson", role: "Developer" },
-          { id: 4, name: "Sarah Wilson", role: "Developer" },
-          { id: 5, name: "Tom Brown", role: "QA Tester" },
-        ]
-        setAvailableMembers(allMembers)
-      } catch (error) {
-        console.error("Error fetching project:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchProject()
+    fetchAvailableMembers()
   }, [id])
 
-  const handleDelete = () => {
+  const fetchProject = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await axios.get(`/projects/${id}`)
+      
+      if (response.data.success) {
+        const projectData = response.data.data
+        
+        // Transform data to match component format
+        const transformedProject = {
+          id: projectData.project_id,
+          name: projectData.project_name,
+          description: projectData.description,
+          status: projectData.status,
+          progress: calculateProgress(projectData.tasks),
+          dueDate: projectData.due_date ? new Date(projectData.due_date).toISOString().split('T')[0] : 'N/A',
+          createdDate: projectData.created_at ? new Date(projectData.created_at).toISOString().split('T')[0] : 'N/A',
+          attachments: projectData.attachments.map(att => ({
+            id: att.attachment_id,
+            name: att.file_name,
+            size: att.file_size,
+            type: att.file_type,
+            path: att.file_path
+          })),
+          teamMembers: projectData.members.map(member => ({
+            id: member.user_id,
+            name: member.full_name,
+            role: member.role
+          })),
+          tasks: projectData.tasks.map(task => ({
+            id: task.task_id,
+            title: task.title,
+            status: mapTaskStatus(task.status),
+            priority: mapTaskPriority(task.priority),
+            assignee: task.assignee_name || 'Unassigned'
+          }))
+        }
+        
+        setProject(transformedProject)
+        setSelectedMembers(transformedProject.teamMembers)
+      }
+    } catch (err) {
+      console.error("Error fetching project:", err)
+      setError("Failed to load project details")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAvailableMembers = async () => {
+    try {
+      const response = await axios.get('/users/all')
+      if (response.data.success) {
+        const users = response.data.data.map(user => ({
+          id: user.user_id,
+          name: user.full_name,
+          email: user.email
+        }))
+        setAvailableMembers(users)
+      }
+    } catch (err) {
+      console.error("Error fetching members:", err)
+    }
+  }
+
+  const calculateProgress = (tasks) => {
+    if (!tasks || tasks.length === 0) return 0
+    const completed = tasks.filter(t => t.status === 'done').length
+    return Math.round((completed / tasks.length) * 100)
+  }
+
+  const mapTaskStatus = (status) => {
+    const statusMap = {
+      'todo': 'To-Do',
+      'in_progress': 'In Progress',
+      'done': 'Completed',
+      'blocked': 'Blocked'
+    }
+    return statusMap[status] || status
+  }
+
+  const mapTaskPriority = (priority) => {
+    const priorityMap = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High'
+    }
+    return priorityMap[priority] || priority
+  }
+
+  const handleDelete = async () => {
     if (window.confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
-      console.log("Deleting project:", id)
-      alert("Project deleted successfully!")
-      navigate("/projects")
+      try {
+        const response = await axios.delete(`/projects/${id}`)
+        if (response.data.success) {
+          alert("Project deleted successfully!")
+          navigate("/projects")
+        }
+      } catch (err) {
+        console.error("Error deleting project:", err)
+        alert("Failed to delete project")
+      }
     }
   }
 
   const handleDownloadAttachment = (attachment) => {
-    console.log("Downloading:", attachment.name)
-    alert(`Downloading ${attachment.name}...`)
+    // Download file from server
+    const downloadUrl = `http://localhost:5000${attachment.path}`
+    window.open(downloadUrl, '_blank')
   }
 
-  const handleDeleteAttachment = (attachmentId) => {
-    setProject((prev) => ({
-      ...prev,
-      attachments: prev.attachments.filter((att) => att.id !== attachmentId),
-    }))
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (window.confirm("Are you sure you want to delete this attachment?")) {
+      try {
+        const response = await axios.delete(`/projects/${id}/attachments/${attachmentId}`)
+        
+        if (response.data.success) {
+          setProject((prev) => ({
+            ...prev,
+            attachments: prev.attachments.filter((att) => att.id !== attachmentId),
+          }))
+          alert("Attachment deleted successfully!")
+        }
+      } catch (err) {
+        console.error("Error deleting attachment:", err)
+        alert("Failed to delete attachment")
+      }
+    }
   }
 
   const handleAddMember = (member) => {
@@ -118,14 +160,26 @@ const ProjectDetails = () => {
     setSelectedMembers((prev) => prev.filter((m) => m.id !== memberId))
   }
 
-  const handleSaveMembers = () => {
-    setProject((prev) => ({
-      ...prev,
-      teamMembers: selectedMembers,
-    }))
-    setShowAssignModal(false)
-    setMemberSearchInput("")
-    console.log("Members assigned:", selectedMembers)
+  const handleSaveMembers = async () => {
+    try {
+      const memberIds = selectedMembers.map(m => m.id)
+      const response = await axios.put(`/projects/${id}`, {
+        memberIds: memberIds
+      })
+      
+      if (response.data.success) {
+        setProject((prev) => ({
+          ...prev,
+          teamMembers: selectedMembers,
+        }))
+        setShowAssignModal(false)
+        setMemberSearchInput("")
+        alert("Team members updated successfully!")
+      }
+    } catch (err) {
+      console.error("Error updating members:", err)
+      alert("Failed to update team members")
+    }
   }
 
   const getStatusColor = (status) => {
@@ -162,11 +216,70 @@ const ProjectDetails = () => {
   )
 
   if (loading) {
-    return <div style={{ textAlign: "center", padding: "32px", color: "#4b5563" }}>Loading project...</div>
+    return (
+      <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "32px 16px" }}>
+        <div style={{ textAlign: "center", padding: "64px", color: "#4b5563" }}>
+          <div style={{ fontSize: "18px", fontWeight: "500" }}>Loading project...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "32px 16px" }}>
+        <div style={{ 
+          backgroundColor: "#fee2e2", 
+          border: "1px solid #fecaca", 
+          borderRadius: "8px", 
+          padding: "16px", 
+          color: "#991b1b",
+          textAlign: "center"
+        }}>
+          {error}
+        </div>
+        <button
+          onClick={() => navigate("/projects")}
+          style={{
+            marginTop: "16px",
+            padding: "10px 20px",
+            backgroundColor: "#2563eb",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontSize: "14px"
+          }}
+        >
+          Back to Projects
+        </button>
+      </div>
+    )
   }
 
   if (!project) {
-    return <div style={{ textAlign: "center", padding: "32px", color: "#4b5563" }}>Project not found</div>
+    return (
+      <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "32px 16px" }}>
+        <div style={{ textAlign: "center", padding: "64px", color: "#4b5563" }}>
+          <div style={{ fontSize: "18px", fontWeight: "500" }}>Project not found</div>
+          <button
+            onClick={() => navigate("/projects")}
+            style={{
+              marginTop: "16px",
+              padding: "10px 20px",
+              backgroundColor: "#2563eb",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "14px"
+            }}
+          >
+            Back to Projects
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const taskStats = {
@@ -399,7 +512,7 @@ const ProjectDetails = () => {
             Project Tasks
           </h2>
           <button
-            onClick={() => navigate("/create")}
+            onClick={() => navigate("/create-task", { state: { projectId: id, projectName: project.name } })}
             style={{
               display: "flex",
               alignItems: "center",
@@ -449,7 +562,17 @@ const ProjectDetails = () => {
             </thead>
             <tbody>
               {project.tasks.map((task) => (
-                <tr key={task.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                <tr 
+                  key={task.id} 
+                  style={{ 
+                    borderBottom: "1px solid #f3f4f6",
+                    cursor: "pointer",
+                    transition: "background-color 0.2s"
+                  }}
+                  onClick={() => navigate(`/tasks/${task.id}`)}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f9fafb")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                >
                   <td style={{ padding: "12px", color: "#111827", fontSize: "14px" }}>{task.title}</td>
                   <td style={{ padding: "12px" }}>
                     <span
@@ -498,6 +621,7 @@ const ProjectDetails = () => {
             boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
             padding: "24px",
             marginBottom: "32px",
+            minWidth: "fit-content",
           }}
         >
           <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#111827", marginTop: 0, marginBottom: "16px" }}>
@@ -516,6 +640,7 @@ const ProjectDetails = () => {
                   borderRadius: "8px",
                   border: "1px solid #e5e7eb",
                   transition: "box-shadow 0.3s",
+                  minWidth: "fit-content",
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 10px 15px rgba(0,0,0,0.1)")}
                 onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
@@ -524,7 +649,7 @@ const ProjectDetails = () => {
                   <span style={{ fontSize: "14px", fontWeight: "600", color: "#2563eb", width: "48px" }}>
                     {getFileIcon(attachment.type)}
                   </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, overflow: "hidden", minWidth: "fit-content" }}>
                     <p
                       style={{
                         fontSize: "14px",
@@ -534,7 +659,10 @@ const ProjectDetails = () => {
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
+                        wordBreak: "break-all",
+                        minWidth: "fit-content",
                       }}
+                      title={attachment.name}
                     >
                       {attachment.name}
                     </p>
@@ -748,7 +876,8 @@ const ProjectDetails = () => {
                         onMouseEnter={(e) => (e.target.style.backgroundColor = "#e5e7eb")}
                         onMouseLeave={(e) => (e.target.style.backgroundColor = "#f3f4f6")}
                       >
-                        {member.name}
+                        <div style={{ fontWeight: "500" }}>{member.name}</div>
+                        <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>{member.email}</div>
                       </button>
                     ))
                   ) : (
