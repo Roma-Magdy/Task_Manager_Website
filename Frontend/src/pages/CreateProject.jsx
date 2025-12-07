@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { ArrowLeft, Save, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import Textbox from '../components/Textbox';
 import Button from '../components/Button';
 
@@ -19,42 +19,10 @@ const CreateProject = () => {
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: yupResolver(schema),
   });
-  const [attachments, setAttachments] = useState([]);
-
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setAttachments(prev => [...prev, {
-          id: Date.now() + Math.random(),
-          name: file.name,
-          size: (file.size / 1024).toFixed(2),
-          type: file.type,
-          url: reader.result
-        }]);
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const deleteAttachment = (id) => {
-    setAttachments(prev => prev.filter(att => att.id !== id));
-  };
 
   const onSubmit = (data) => {
     console.log('New Project:', data);
-    console.log('Attachments:', attachments);
-    alert('Project created successfully!');
     navigate('/projects');
-  };
-
-  const getFileIcon = (fileType) => {
-    if (fileType.includes('image')) return '🖼️';
-    if (fileType.includes('pdf')) return '📄';
-    if (fileType.includes('word') || fileType.includes('document')) return '📝';
-    if (fileType.includes('sheet') || fileType.includes('excel')) return '📊';
-    return '📎';
   };
 
   return (
@@ -131,54 +99,7 @@ const CreateProject = () => {
             </div>
           </div>
 
-          {/* Attachments Section */}
-          <div className="border-t border-gray-200 pt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Attachments
-            </label>
-            
-            {/* Upload Area */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 hover:bg-blue-50 transition">
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-              />
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload size={32} className="mx-auto text-gray-400 mb-2" />
-                <p className="text-sm font-semibold text-gray-700">Click to upload or drag and drop</p>
-                <p className="text-xs text-gray-500 mt-1">PNG, JPG, PDF, DOC up to 10MB</p>
-              </label>
-            </div>
-
-            {/* Attachments List */}
-            {attachments.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {attachments.map((attachment) => (
-                  <div key={attachment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{getFileIcon(attachment.type)}</span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{attachment.name}</p>
-                        <p className="text-xs text-gray-500">{attachment.size} KB</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => deleteAttachment(attachment.id)}
-                      className="text-red-600 hover:text-red-800 transition"
-                      type="button"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-4 pt-4 border-t border-gray-200">
+          <div className="flex gap-4 pt-4">
             <Button
               type="submit"
               label="Create Project"

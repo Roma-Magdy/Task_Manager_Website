@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Calendar, Trash2, Upload } from 'lucide-react';
+import { ChevronLeft, Calendar, Trash2 } from 'lucide-react';
 
 export default function TaskEdit() {
   const { id } = useParams();
@@ -15,41 +15,15 @@ export default function TaskEdit() {
     assignee: '',
     dueDate: '',
   });
-  const [attachments, setAttachments] = useState([]);
 
-  // Fetch task data on component load
   useEffect(() => {
     const fetchTask = async () => {
       try {
         setLoading(true);
         // Replace with actual API call:
-        // const response = await fetch(`/api/tasks/${id}`);
-        // const task = await response.json();
-        
-        // Mock data for demo
-        const mockTask = {
-          title: 'Fix login bug',
-          description: 'Resolve authentication issue in production',
-          category: 'Bug Fixes',
-          priority: 'Critical',
-          status: 'To-Do',
-          assignee: 'Mike Johnson',
-          dueDate: '2024-11-30',
-          attachments: [
-            { id: 1, name: 'error-log.pdf', size: '256', type: 'application/pdf' },
-            { id: 2, name: 'screenshot.png', size: '512', type: 'image/png' }
-          ]
-        };
-        setFormData({
-          title: mockTask.title,
-          description: mockTask.description,
-          category: mockTask.category,
-          priority: mockTask.priority,
-          status: mockTask.status,
-          assignee: mockTask.assignee,
-          dueDate: mockTask.dueDate,
-        });
-        setAttachments(mockTask.attachments);
+        const response = await fetch(`/tasks/${id}`);
+        const task = await response.json();
+        setFormData(task);
       } catch (error) {
         console.error('Error fetching task:', error);
       } finally {
@@ -68,31 +42,9 @@ export default function TaskEdit() {
     }));
   };
 
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setAttachments(prev => [...prev, {
-          id: Date.now() + Math.random(),
-          name: file.name,
-          size: (file.size / 1024).toFixed(2),
-          type: file.type,
-          url: reader.result
-        }]);
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const deleteAttachment = (attachmentId) => {
-    setAttachments(prev => prev.filter(att => att.id !== attachmentId));
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log('Updating task:', id, formData);
-    console.log('Attachments:', attachments);
     alert('Task updated successfully!');
     navigate('/tasks');
   };
@@ -105,12 +57,22 @@ export default function TaskEdit() {
     }
   };
 
-  const getFileIcon = (fileType) => {
-    if (fileType.includes('image')) return '🖼️';
-    if (fileType.includes('pdf')) return '📄';
-    if (fileType.includes('word') || fileType.includes('document')) return '📝';
-    if (fileType.includes('sheet') || fileType.includes('excel')) return '📊';
-    return '📎';
+  const getPriorityColor = (priority) => {
+    const colors = {
+      'Low': 'bg-green-100 text-green-700',
+      'Medium': 'bg-yellow-100 text-yellow-700',
+      'Critical': 'bg-red-100 text-red-700'
+    };
+    return colors[priority] || colors['Medium'];
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'Completed': 'bg-green-100 text-green-700',
+      'To-Do': 'bg-blue-100 text-blue-700',
+      'In Progress': 'bg-purple-100 text-purple-700'
+    };
+    return colors[status] || colors['To-Do'];
   };
 
   if (loading) {
@@ -252,51 +214,34 @@ export default function TaskEdit() {
                 </div>
               </div>
 
-              {/* Attachments Section */}
-              <div className="border-t border-gray-200 pt-6">
-                <label className="block text-sm font-semibold text-gray-900 mb-3">
-                  Attachments
-                </label>
-                
-                {/* Upload Area */}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 hover:bg-blue-50 transition">
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <Upload size={32} className="mx-auto text-gray-400 mb-2" />
-                    <p className="text-sm font-semibold text-gray-700">Click to upload or drag and drop</p>
-                    <p className="text-xs text-gray-500 mt-1">PNG, JPG, PDF, DOC up to 10MB</p>
-                  </label>
-                </div>
-
-                {/* Attachments List */}
-                {attachments.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {attachments.map((attachment) => (
-                      <div key={attachment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xl">{getFileIcon(attachment.type)}</span>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{attachment.name}</p>
-                            <p className="text-xs text-gray-500">{attachment.size} KB</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => deleteAttachment(attachment.id)}
-                          className="text-red-600 hover:text-red-800 transition"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ))}
+              {/* Preview */}
+              {formData.title && (
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-8">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Preview</p>
+                  <div className="bg-white p-4 rounded border border-gray-200">
+                    <h3 className="font-bold text-gray-900 mb-2">{formData.title}</h3>
+                    <p className="text-sm text-gray-600 mb-3">{formData.description}</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {formData.status && (
+                        <span className={`px-3 py-1 rounded text-xs font-medium ${getStatusColor(formData.status)}`}>
+                          {formData.status}
+                        </span>
+                      )}
+                      {formData.priority && (
+                        <span className={`px-3 py-1 rounded text-xs font-medium ${getPriorityColor(formData.priority)}`}>
+                          {formData.priority}
+                        </span>
+                      )}
+                      {formData.assignee && (
+                        <span className="text-xs text-gray-600">👤 {formData.assignee}</span>
+                      )}
+                      {formData.dueDate && (
+                        <span className="text-xs text-gray-600">📅 {formData.dueDate}</span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Form Actions */}
               <div className="flex gap-3 pt-6 border-t border-gray-200">
@@ -307,7 +252,7 @@ export default function TaskEdit() {
                   Update Task
                 </button>
                 <button
-                  onClick={() => navigate('/tasks')}
+                  onClick={() => navigate('/task/:id')}
                   className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-lg transition"
                 >
                   Cancel
@@ -325,4 +270,5 @@ export default function TaskEdit() {
       </div>
     </div>
   );
+
 }
