@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Trash2, Plus, ArrowLeft } from "lucide-react"
+import axios from "../utils/axios"
 
 const EditProject = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -17,63 +19,92 @@ const EditProject = () => {
   const [teamMembers, setTeamMembers] = useState([])
   const [newTask, setNewTask] = useState({ title: "", status: "To-Do", priority: "Medium", assignee: "" })
   const [newMember, setNewMember] = useState("")
-  const [allMembers] = useState([
-    { id: 1, name: "John Doe", role: "Project Manager" },
-    { id: 2, name: "Jane Smith", role: "Designer" },
-    { id: 3, name: "Mike Johnson", role: "Developer" },
-    { id: 4, name: "Sarah Wilson", role: "Developer" },
-    { id: 5, name: "Tom Brown", role: "QA Tester" },
-  ])
+  const [allMembers, setAllMembers] = useState([])
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        setLoading(true)
-        const mockProject = {
-          name: "Website Redesign",
-          description:
-            "Complete overhaul of company website with modern UI/UX. This includes redesigning all major pages, implementing responsive design, and improving overall user experience.",
-          dueDate: "2024-12-15",
-          status: "In Progress",
-          attachments: [
-            { id: 1, name: "wireframes.pdf", size: "1024", type: "application/pdf" },
-            { id: 2, name: "design-mockup.png", size: "2048", type: "image/png" },
-          ],
-          tasks: [
-            { id: 1, title: "Design homepage mockup", status: "Completed", priority: "High", assignee: "Jane Smith" },
-            {
-              id: 2,
-              title: "Develop navigation component",
-              status: "In Progress",
-              priority: "High",
-              assignee: "Mike Johnson",
-            },
-          ],
-          teamMembers: [
-            { id: 1, name: "John Doe", role: "Project Manager" },
-            { id: 2, name: "Jane Smith", role: "Designer" },
-            { id: 3, name: "Mike Johnson", role: "Developer" },
-          ],
-        }
-        setFormData({
-          name: mockProject.name,
-          description: mockProject.description,
-          dueDate: mockProject.dueDate,
-          status: mockProject.status,
-        })
-        setAttachments(mockProject.attachments)
-        setTasks(mockProject.tasks)
-        setTeamMembers(mockProject.teamMembers)
-      } catch (error) {
-        console.error("Error fetching project:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchProject()
+    fetchAllUsers()
   }, [id])
+
+  const fetchProject = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await axios.get(`/projects/${id}`)
+      
+      if (response.data.success) {
+        const projectData = response.data.data
+        
+        setFormData({
+          name: projectData.project_name,
+          description: projectData.description,
+          dueDate: projectData.due_date ? new Date(projectData.due_date).toISOString().split('T')[0] : '',
+          status: projectData.status,
+        })
+        
+        setAttachments(projectData.attachments.map(att => ({
+          id: att.attachment_id,
+          name: att.file_name,
+          size: att.file_size,
+          type: att.file_type,
+          path: att.file_path,
+          isExisting: true
+        })))
+        
+        setTasks(projectData.tasks.map(task => ({
+          id: task.task_id,
+          title: task.title,
+          status: mapTaskStatus(task.status),
+          priority: mapTaskPriority(task.priority),
+          assignee: task.assignee_name || '',
+          isExisting: true
+        })))
+        
+        setTeamMembers(projectData.members.map(member => ({
+          id: member.user_id,
+          name: member.full_name,
+          email: member.email,
+          role: member.role
+        })))
+      }
+    } catch (err) {
+      console.error("Error fetching project:", err)
+      setError("Failed to load project")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAllUsers = async () => {
+    try {
+      const response = await axios.get('/users/all')
+      if (response.data.success) {
+        setAllMembers(response.data.data)
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err)
+    }
+  }
+
+  const mapTaskStatus = (status) => {
+    const statusMap = {
+      'todo': 'To-Do',
+      'in_progress': 'In Progress',
+      'done': 'Completed',
+      'blocked': 'Blocked'
+    }
+    return statusMap[status] || status
+  }
+
+  const mapTaskPriority = (priority) => {
+    const priorityMap = {
+      'low': 'Low',
+      'medium': 'Medium',
+      'high': 'High'
+    }
+    return priorityMap[priority] || priority
+  }
 
   const validateForm = () => {
     const newErrors = {}
@@ -111,8 +142,26 @@ const EditProject = () => {
     })
   }
 
-  const deleteAttachment = (attachmentId) => {
-    setAttachments((prev) => prev.filter((att) => att.id !== attachmentId))
+  const deleteAttachment = async (attachmentId, isExisting) => {
+    // If it's an existing attachment, delete from server
+    if (isExisting) {
+      if (window.confirm("Are you sure you want to delete this attachment?")) {
+        try {
+          const response = await axios.delete(`/projects/${id}/attachments/${attachmentId}`)
+          
+          if (response.data.success) {
+            setAttachments((prev) => prev.filter((att) => att.id !== attachmentId))
+            alert("Attachment deleted successfully!")
+          }
+        } catch (err) {
+          console.error("Error deleting attachment:", err)
+          alert("Failed to delete attachment")
+        }
+      }
+    } else {
+      // Just remove from state if it's a new attachment not yet saved
+      setAttachments((prev) => prev.filter((att) => att.id !== attachmentId))
+    }
   }
 
   const handleAddTask = () => {
@@ -142,9 +191,14 @@ const EditProject = () => {
       alert("Please select a team member")
       return
     }
-    const selectedMember = allMembers.find((m) => m.name === newMember)
-    if (selectedMember && !teamMembers.find((m) => m.id === selectedMember.id)) {
-      setTeamMembers((prev) => [...prev, selectedMember])
+    const selectedMember = allMembers.find((m) => m.user_id === parseInt(newMember))
+    if (selectedMember && !teamMembers.find((m) => m.id === selectedMember.user_id)) {
+      setTeamMembers((prev) => [...prev, {
+        id: selectedMember.user_id,
+        name: selectedMember.full_name,
+        email: selectedMember.email,
+        role: 'member'
+      }])
       setNewMember("")
     } else {
       alert("Member already assigned")
@@ -155,22 +209,45 @@ const EditProject = () => {
     setTeamMembers((prev) => prev.filter((m) => m.id !== memberId))
   }
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault()
     if (!validateForm()) return
-    console.log("Updated Project:", id, formData)
-    console.log("Tasks:", tasks)
-    console.log("Team Members:", teamMembers)
-    console.log("Attachments:", attachments)
-    alert("Project updated successfully!")
-    navigate("/projects")
+
+    try {
+      const updateData = {
+        name: formData.name,
+        description: formData.description,
+        dueDate: formData.dueDate,
+        status: formData.status,
+        memberIds: teamMembers.filter(m => m.role !== 'manager').map(m => m.id)
+      }
+
+      const response = await axios.put(`/projects/${id}`, updateData)
+
+      if (response.data.success) {
+        alert("Project updated successfully!")
+        navigate(`/projects/${id}`)
+      } else {
+        alert("Failed to update project: " + response.data.message)
+      }
+    } catch (err) {
+      console.error("Error updating project:", err)
+      alert("An error occurred while updating the project")
+    }
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
-      console.log("Deleting project:", id)
-      alert("Project deleted successfully!")
-      navigate("/projects")
+      try {
+        const response = await axios.delete(`/projects/${id}`)
+        if (response.data.success) {
+          alert("Project deleted successfully!")
+          navigate("/projects")
+        }
+      } catch (err) {
+        console.error("Error deleting project:", err)
+        alert("Failed to delete project")
+      }
     }
   }
 
@@ -183,7 +260,45 @@ const EditProject = () => {
   }
 
   if (loading) {
-    return <div style={{ textAlign: "center", padding: "32px", color: "#4b5563" }}>Loading project...</div>
+    return (
+      <div style={{ maxWidth: "896px", margin: "0 auto", padding: "32px 16px" }}>
+        <div style={{ textAlign: "center", padding: "64px", color: "#4b5563" }}>
+          <div style={{ fontSize: "18px", fontWeight: "500" }}>Loading project...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ maxWidth: "896px", margin: "0 auto", padding: "32px 16px" }}>
+        <div style={{ 
+          backgroundColor: "#fee2e2", 
+          border: "1px solid #fecaca", 
+          borderRadius: "8px", 
+          padding: "16px", 
+          color: "#991b1b",
+          textAlign: "center"
+        }}>
+          {error}
+        </div>
+        <button
+          onClick={() => navigate("/projects")}
+          style={{
+            marginTop: "16px",
+            padding: "10px 20px",
+            backgroundColor: "#2563eb",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontSize: "14px"
+          }}
+        >
+          Back to Projects
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -480,10 +595,10 @@ const EditProject = () => {
               >
                 <option value="">Select a team member to add</option>
                 {allMembers
-                  .filter((member) => !teamMembers.find((tm) => tm.id === member.id))
+                  .filter((member) => !teamMembers.find((tm) => tm.id === member.user_id))
                   .map((member) => (
-                    <option key={member.id} value={member.name}>
-                      {member.name} - {member.role}
+                    <option key={member.user_id} value={member.user_id}>
+                      {member.full_name} ({member.email})
                     </option>
                   ))}
               </select>
@@ -516,7 +631,7 @@ const EditProject = () => {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
                   gap: "12px",
                   marginBottom: "16px",
                 }}
@@ -529,30 +644,37 @@ const EditProject = () => {
                       alignItems: "center",
                       justifyContent: "space-between",
                       padding: "10px 12px",
-                      backgroundColor: "#eff6ff",
-                      border: "1px solid #bfdbfe",
+                      backgroundColor: member.role === 'manager' ? "#fef3c7" : "#eff6ff",
+                      border: member.role === 'manager' ? "1px solid #fcd34d" : "1px solid #bfdbfe",
                       borderRadius: "6px",
                       fontSize: "13px",
                     }}
                   >
-                    <span style={{ color: "#111827", fontWeight: "500" }}>{member.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveMember(member.id)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#dc2626",
-                        cursor: "pointer",
-                        padding: 0,
-                        marginLeft: "8px",
-                        display: "inline-flex",
-                      }}
-                      onMouseEnter={(e) => (e.target.style.color = "#b91c1c")}
-                      onMouseLeave={(e) => (e.target.style.color = "#dc2626")}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: "#111827", fontWeight: "500" }}>{member.name}</div>
+                      <div style={{ color: "#6b7280", fontSize: "11px", textTransform: "capitalize" }}>
+                        {member.role}
+                      </div>
+                    </div>
+                    {member.role !== 'manager' && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMember(member.id)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#dc2626",
+                          cursor: "pointer",
+                          padding: 0,
+                          marginLeft: "8px",
+                          display: "inline-flex",
+                        }}
+                        onMouseEnter={(e) => (e.target.style.color = "#b91c1c")}
+                        onMouseLeave={(e) => (e.target.style.color = "#dc2626")}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -610,19 +732,28 @@ const EditProject = () => {
                       border: "1px solid #e5e7eb",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "600", color: "#2563eb", width: "48px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: "14px", fontWeight: "600", color: "#2563eb", width: "48px", flexShrink: 0 }}>
                         {getFileIcon(attachment.type)}
                       </span>
-                      <div>
-                        <p style={{ fontSize: "14px", fontWeight: "500", color: "#111827", margin: 0 }}>
+                      <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                        <p style={{ 
+                          fontSize: "14px", 
+                          fontWeight: "500", 
+                          color: "#111827", 
+                          margin: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}
+                        title={attachment.name}>
                           {attachment.name}
                         </p>
                         <p style={{ fontSize: "12px", color: "#6b7280", margin: "4px 0 0 0" }}>{attachment.size} KB</p>
                       </div>
                     </div>
                     <button
-                      onClick={() => deleteAttachment(attachment.id)}
+                      onClick={() => deleteAttachment(attachment.id, attachment.isExisting)}
                       type="button"
                       style={{
                         background: "none",

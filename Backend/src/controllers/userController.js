@@ -63,3 +63,23 @@ exports.updateUserPreferences = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+/**
+ * Get all users (for team member selection)
+ * @route GET /api/users/all
+ */
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await UserModel.getAllUsers();
+    res.json({
+      success: true,
+      data: users
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server Error' 
+    });
+  }
+};

@@ -46,6 +46,14 @@ class UserModel {
     );
     return result;
   }
+
+  // Get all users
+  static async getAllUsers() {
+    const [rows] = await db.execute(
+      'SELECT user_id, full_name, email FROM users ORDER BY full_name ASC'
+    );
+    return rows;
+  }
 }
 
 module.exports = UserModel;
