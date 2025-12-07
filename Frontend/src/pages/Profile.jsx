@@ -1,11 +1,10 @@
 import { motion } from "framer-motion"
-import { Edit2, Mail, User, ArrowLeft, Check, Bell } from "lucide-react"
-import { useState, useEffect, useContext } from "react"
+import { Edit2, Mail, User, ArrowLeft, Check, Bell, Lock } from "lucide-react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import * as Yup from "yup"
 import axios from "axios"
 import { toast } from "sonner"
-import { NotificationContext } from "../context/NotificationContext"
 import "../styles/profile.css"
 
 const containerVariants = {
@@ -28,30 +27,29 @@ const itemVariants = {
   },
 }
 
+// --- FIX IS HERE ---
 const profileValidationSchema = Yup.object().shape({
-  username: Yup.string()
-    .min(3, "Username must be at least 3 characters")
-    .max(20, "Username must be at most 20 characters")
-    .required("Username is required"),
-  fullName: Yup.string().min(2, "Full name must be at least 2 characters").required("Full name is required"),
+  fullName: Yup.string()
+    .min(2, "Full name must be at least 2 characters")
+    .required("Full name is required"),
+  password: Yup.string()
+    // This allows empty strings to pass validation
+    .test('len', 'Password must be at least 6 characters', val => !val || val.length >= 6),
 })
 
 export default function Profile() {
   const navigate = useNavigate()
-  // We use local state for preferences here to ensure we are editing the DB values directly
-  // If you want to keep the Context sync, you can wrap the fetch in the context, 
-  // but for this page, we will manage it locally to ensure the API saves work.
 
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const [formData, setFormData] = useState({
-    username: "",
     email: "",
     fullName: "",
+    password: ""
   })
 
-  // Default preferences state
+  // Notification Preferences State
   const [notificationPreferences, setNotificationPreferences] = useState({
     enabled: true,
     somethingDue: true,
@@ -63,7 +61,7 @@ export default function Profile() {
   const [errors, setErrors] = useState({})
   const [successMessage, setSuccessMessage] = useState("")
 
-  // 1. Fetch Profile Data on Mount
+  // 1. Fetch Profile Data
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -77,9 +75,9 @@ export default function Profile() {
         const { data } = await axios.get("http://localhost:5000/api/users/profile", config)
 
         setFormData({
-          username: data.username || "", // Maps to full_name in backend
           email: data.email || "",
           fullName: data.fullName || "",
+          password: "" 
         })
 
         if (data.preferences) {
@@ -104,7 +102,7 @@ export default function Profile() {
     }
   }
 
-  // 2. Handle Profile Update (Name/Username)
+  // 2. Handle Profile Save
   const handleSave = async () => {
     try {
       await profileValidationSchema.validate(formData, { abortEarly: false })
@@ -112,33 +110,36 @@ export default function Profile() {
       const token = localStorage.getItem("token")
       const config = { headers: { Authorization: `Bearer ${token}` } }
 
-      await axios.put("http://localhost:5000/api/users/profile", {
-        username: formData.username,
-        fullName: formData.fullName
-      }, config)
+      const payload = { fullName: formData.fullName }
+      // Only add password to payload if it's not empty
+      if (formData.password) {
+          payload.password = formData.password
+      }
+
+      await axios.put("http://localhost:5000/api/users/profile", payload, config)
 
       setErrors({})
       setSuccessMessage("Profile updated successfully!")
-      setTimeout(() => setSuccessMessage(""), 3000)
       setIsEditing(false)
+      setFormData(prev => ({ ...prev, password: "" })) 
       toast.success("Profile updated successfully")
+      
+      setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
       if (error.inner) {
-        // Validation errors
         const newErrors = {}
         error.inner.forEach((err) => {
           newErrors[err.path] = err.message
         })
         setErrors(newErrors)
       } else {
-        // API errors
         console.error(error)
         toast.error(error.response?.data?.message || "Update failed")
       }
     }
   }
 
-  // Helper to save preferences to Backend
+  // 3. Handle Preferences Save
   const savePreferencesToBackend = async (newPrefs) => {
       try {
         const token = localStorage.getItem("token")
@@ -150,12 +151,11 @@ export default function Profile() {
       }
   }
 
-  // 3. Handle Preference Toggles
   const handleNotificationToggle = (key) => {
     const newValue = !notificationPreferences[key]
     const newPrefs = { ...notificationPreferences, [key]: newValue }
     
-    setNotificationPreferences(newPrefs) // Optimistic UI update
+    setNotificationPreferences(newPrefs) 
     savePreferencesToBackend(newPrefs)
   }
 
@@ -163,7 +163,7 @@ export default function Profile() {
     const newValue = !notificationPreferences.enabled
     const newPrefs = { ...notificationPreferences, enabled: newValue }
     
-    setNotificationPreferences(newPrefs) // Optimistic UI update
+    setNotificationPreferences(newPrefs)
     savePreferencesToBackend(newPrefs)
   }
 
@@ -235,47 +235,9 @@ export default function Profile() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mt-4 pt-4 border-t border-border space-y-3"
+                className="mt-4 pt-4 border-t border-border space-y-4"
               >
-                {/* Username */}
-                <div className="border-t border-border pt-3">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-foreground/70 mb-2">
-                    <User className="w-4 h-4" />
-                    Username
-                  </label>
-                  <div>
-                    <input
-                      type="text"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-input text-foreground ${
-                        errors.username ? "border-red-500" : "border-border"
-                      }`}
-                    />
-                    {errors.username && <p className="text-red-500 text-sm mt-1">{errors.username}</p>}
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-foreground/70 mb-2">
-                    <Mail className="w-4 h-4" />
-                    Email
-                  </label>
-                  <div>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      disabled
-                      className="w-full px-4 py-2 border border-border rounded-lg bg-gray-100 text-foreground/50 cursor-not-allowed"
-                    />
-                    <p className="text-xs text-foreground/50 mt-1">Email cannot be changed</p>
-                  </div>
-                </div>
-
-                {/* Full Name */}
+                {/* 1. Full Name */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-foreground/70 mb-2">
                     <User className="w-4 h-4" />
@@ -292,6 +254,44 @@ export default function Profile() {
                       }`}
                     />
                     {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
+                  </div>
+                </div>
+
+                {/* 2. Email */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-foreground/70 mb-2">
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </label>
+                  <div>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      disabled
+                      className="w-full px-4 py-2 border border-border rounded-lg bg-gray-100 text-foreground/50 cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Password */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-foreground/70 mb-2">
+                    <Lock className="w-4 h-4" />
+                    New Password
+                  </label>
+                  <div>
+                    <input
+                      type="password"
+                      name="password"
+                      placeholder="Leave blank to keep current password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-input text-foreground ${
+                        errors.password ? "border-red-500" : "border-border"
+                      }`}
+                    />
+                    {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
                   </div>
                 </div>
 
