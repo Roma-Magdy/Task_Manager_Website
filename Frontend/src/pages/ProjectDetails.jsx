@@ -1,10 +1,6 @@
-
-
-"use client"
-
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { ArrowLeft, Calendar, Users, CheckCircle, Clock, ListTodo, Edit, Trash2, Download, Plus, X } from "lucide-react"
+import { Download, Trash2, ArrowLeft, Edit2, Plus } from "lucide-react"
 
 const ProjectDetails = () => {
   const { id } = useParams()
@@ -14,17 +10,12 @@ const ProjectDetails = () => {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [availableMembers, setAvailableMembers] = useState([])
   const [selectedMembers, setSelectedMembers] = useState([])
+  const [memberSearchInput, setMemberSearchInput] = useState("")
 
-  // Fetch project data on component load
   useEffect(() => {
     const fetchProject = async () => {
       try {
         setLoading(true)
-        // Replace with your actual API call:
-        // const response = await fetch(`/api/projects/${id}`);
-        // const projectData = await response.json();
-
-        // Mock project data
         const mockProject = {
           id: id,
           name: "Website Redesign",
@@ -45,9 +36,9 @@ const ProjectDetails = () => {
             },
           ],
           teamMembers: [
-            { id: 1, name: "John Doe", role: "Project Manager", avatar: "JD" },
-            { id: 2, name: "Jane Smith", role: "Designer", avatar: "JS" },
-            { id: 3, name: "Mike Johnson", role: "Developer", avatar: "MJ" },
+            { id: 1, name: "John Doe", role: "Project Manager" },
+            { id: 2, name: "Jane Smith", role: "Designer" },
+            { id: 3, name: "Mike Johnson", role: "Developer" },
           ],
           tasks: [
             { id: 1, title: "Design homepage mockup", status: "Completed", priority: "High", assignee: "Jane Smith" },
@@ -79,13 +70,12 @@ const ProjectDetails = () => {
         setProject(mockProject)
         setSelectedMembers(mockProject.teamMembers)
 
-        // Mock available members (all members not assigned)
         const allMembers = [
-          { id: 1, name: "John Doe", role: "Project Manager", avatar: "JD" },
-          { id: 2, name: "Jane Smith", role: "Designer", avatar: "JS" },
-          { id: 3, name: "Mike Johnson", role: "Developer", avatar: "MJ" },
-          { id: 4, name: "Sarah Wilson", role: "Developer", avatar: "SW" },
-          { id: 5, name: "Tom Brown", role: "QA Tester", avatar: "TB" },
+          { id: 1, name: "John Doe", role: "Project Manager" },
+          { id: 2, name: "Jane Smith", role: "Designer" },
+          { id: 3, name: "Mike Johnson", role: "Developer" },
+          { id: 4, name: "Sarah Wilson", role: "Developer" },
+          { id: 5, name: "Tom Brown", role: "QA Tester" },
         ]
         setAvailableMembers(allMembers)
       } catch (error) {
@@ -118,54 +108,43 @@ const ProjectDetails = () => {
     }))
   }
 
-  const toggleMemberSelection = (member) => {
-    setSelectedMembers((prev) => {
-      const isSelected = prev.some((m) => m.id === member.id)
-      if (isSelected) {
-        return prev.filter((m) => m.id !== member.id)
-      } else {
-        return [...prev, member]
-      }
-    })
+  const handleAddMember = (member) => {
+    if (!selectedMembers.find((m) => m.id === member.id)) {
+      setSelectedMembers((prev) => [...prev, member])
+    }
   }
 
-  const handleSaveMembers = async () => {
-    try {
-      // Replace with your actual API call:
-      // await fetch(`/api/projects/${id}/members`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ members: selectedMembers })
-      // });
+  const handleRemoveMember = (memberId) => {
+    setSelectedMembers((prev) => prev.filter((m) => m.id !== memberId))
+  }
 
-      setProject((prev) => ({
-        ...prev,
-        teamMembers: selectedMembers,
-      }))
-      setShowAssignModal(false)
-      console.log("Members assigned:", selectedMembers)
-    } catch (error) {
-      console.error("Error assigning members:", error)
-    }
+  const handleSaveMembers = () => {
+    setProject((prev) => ({
+      ...prev,
+      teamMembers: selectedMembers,
+    }))
+    setShowAssignModal(false)
+    setMemberSearchInput("")
+    console.log("Members assigned:", selectedMembers)
   }
 
   const getStatusColor = (status) => {
     const colors = {
-      Planning: "bg-blue-100 text-blue-800",
-      "In Progress": "bg-yellow-100 text-yellow-800",
-      Completed: "bg-green-100 text-green-800",
-      "To-Do": "bg-gray-100 text-gray-800",
+      Planning: { bg: "#dbeafe", text: "#1e40af" },
+      "In Progress": { bg: "#fef3c7", text: "#92400e" },
+      Completed: { bg: "#dcfce7", text: "#166534" },
+      "To-Do": { bg: "#f3f4f6", text: "#374151" },
     }
-    return colors[status] || "bg-gray-100 text-gray-800"
+    return colors[status] || { bg: "#f3f4f6", text: "#374151" }
   }
 
   const getPriorityColor = (priority) => {
     const colors = {
-      High: "bg-red-100 text-red-800",
-      Medium: "bg-yellow-100 text-yellow-800",
-      Low: "bg-green-100 text-green-800",
+      High: { bg: "#fee2e2", text: "#991b1b" },
+      Medium: { bg: "#fef3c7", text: "#92400e" },
+      Low: { bg: "#dcfce7", text: "#166534" },
     }
-    return colors[priority] || "bg-gray-100 text-gray-800"
+    return colors[priority] || { bg: "#f3f4f6", text: "#374151" }
   }
 
   const getFileIcon = (fileType) => {
@@ -176,20 +155,18 @@ const ProjectDetails = () => {
     return "[FILE]"
   }
 
+  const filteredMembers = availableMembers.filter(
+    (member) =>
+      member.name.toLowerCase().includes(memberSearchInput.toLowerCase()) &&
+      !selectedMembers.find((m) => m.id === member.id),
+  )
+
   if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <p className="text-gray-600 text-center">Loading project...</p>
-      </div>
-    )
+    return <div style={{ textAlign: "center", padding: "32px", color: "#4b5563" }}>Loading project...</div>
   }
 
   if (!project) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <p className="text-gray-600 text-center">Project not found</p>
-      </div>
-    )
+    return <div style={{ textAlign: "center", padding: "32px", color: "#4b5563" }}>Project not found</div>
   }
 
   const taskStats = {
@@ -199,141 +176,406 @@ const ProjectDetails = () => {
     todo: project.tasks.filter((t) => t.status === "To-Do").length,
   }
 
+  const statusColor = getStatusColor(project.status)
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "32px 16px" }}>
       {/* Header */}
-      <div className="mb-8">
+      <div style={{ marginBottom: "32px" }}>
         <button
           onClick={() => navigate("/projects")}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            color: "#4b5563",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "14px",
+            marginBottom: "16px",
+            padding: 0,
+          }}
+          onMouseEnter={(e) => (e.target.style.color = "#111827")}
+          onMouseLeave={(e) => (e.target.style.color = "#4b5563")}
         >
-          <ArrowLeft className="w-5 h-5" />
-          Back to Projects
+          <ArrowLeft size={16} style={{ display: "inline" }} /> Back to Projects
         </button>
-        <div className="flex justify-between items-start">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-            <span
-              className={`inline-block px-3 py-1 rounded-full text-sm font-medium mt-3 ${getStatusColor(project.status)}`}
+            <h1 style={{ fontSize: "30px", fontWeight: "bold", color: "#111827", margin: 0 }}>{project.name}</h1>
+            <div
+              style={{
+                display: "inline-block",
+                padding: "6px 12px",
+                borderRadius: "20px",
+                fontSize: "14px",
+                fontWeight: "600",
+                marginTop: "12px",
+                backgroundColor: statusColor.bg,
+                color: statusColor.text,
+              }}
             >
               {project.status}
-            </span>
+            </div>
           </div>
-          <div className="flex gap-3">
+          <div style={{ display: "flex", gap: "12px" }}>
             <button
               onClick={() => navigate(`/projects/${project.id}/edit`)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 16px",
+                backgroundColor: "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                transition: "background-color 0.3s",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#1d4ed8")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#2563eb")}
             >
-              <Edit className="w-4 h-4" />
-              Edit
+              <Edit2 size={16} style={{ display: "inline" }} /> Edit
             </button>
             <button
               onClick={handleDelete}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 16px",
+                backgroundColor: "#dc2626",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                transition: "background-color 0.3s",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#b91c1c")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#dc2626")}
             >
-              <Trash2 className="w-4 h-4" />
-              Delete
+              <Trash2 size={16} style={{ display: "inline" }} /> Delete
             </button>
           </div>
         </div>
       </div>
 
       {/* Project Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px", marginBottom: "32px" }}>
         {/* Main Info */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Project Description</h2>
-          <p className="text-gray-600 mb-6">{project.description}</p>
+        <div
+          style={{
+            backgroundColor: "white",
+            borderRadius: "12px",
+            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            padding: "24px",
+          }}
+        >
+          <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#111827", marginTop: 0, marginBottom: "16px" }}>
+            Project Description
+          </h2>
+          <p style={{ color: "#4b5563", marginBottom: "24px" }}>{project.description}</p>
 
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-gray-400" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div>
-                <p className="text-sm text-gray-500">Created</p>
-                <p className="text-gray-900 font-medium">{project.createdDate}</p>
+                <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Created</p>
+                <p style={{ fontSize: "14px", fontWeight: "500", color: "#111827", margin: "4px 0 0 0" }}>
+                  {project.createdDate}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-gray-400" />
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div>
-                <p className="text-sm text-gray-500">Due Date</p>
-                <p className="text-gray-900 font-medium">{project.dueDate}</p>
+                <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Due Date</p>
+                <p style={{ fontSize: "14px", fontWeight: "500", color: "#111827", margin: "4px 0 0 0" }}>
+                  {project.dueDate}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Progress */}
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-              <span className="text-sm font-bold text-gray-900">{project.progress}%</span>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <span style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>Overall Progress</span>
+              <span style={{ fontSize: "14px", fontWeight: "bold", color: "#111827" }}>{project.progress}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div
+              style={{
+                width: "100%",
+                backgroundColor: "#e5e7eb",
+                borderRadius: "9999px",
+                height: "12px",
+                overflow: "hidden",
+              }}
+            >
               <div
-                className="bg-blue-600 h-3 rounded-full transition-all"
-                style={{ width: `${project.progress}%` }}
+                style={{
+                  backgroundColor: "#2563eb",
+                  height: "100%",
+                  borderRadius: "9999px",
+                  transition: "width 0.3s",
+                  width: `${project.progress}%`,
+                }}
               ></div>
             </div>
           </div>
         </div>
 
         {/* Stats Card */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Task Statistics</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="text-gray-700">Completed</span>
-              </div>
-              <span className="font-bold text-gray-900">{taskStats.completed}</span>
+        <div
+          style={{
+            backgroundColor: "white",
+            borderRadius: "12px",
+            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            padding: "24px",
+          }}
+        >
+          <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#111827", marginTop: 0, marginBottom: "16px" }}>
+            Task Statistics
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px",
+                backgroundColor: "#f0fdf4",
+                borderRadius: "8px",
+              }}
+            >
+              <span style={{ color: "#374151" }}>Completed</span>
+              <span style={{ fontWeight: "bold", color: "#111827" }}>{taskStats.completed}</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-yellow-600" />
-                <span className="text-gray-700">In Progress</span>
-              </div>
-              <span className="font-bold text-gray-900">{taskStats.inProgress}</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px",
+                backgroundColor: "#fefce8",
+                borderRadius: "8px",
+              }}
+            >
+              <span style={{ color: "#374151" }}>In Progress</span>
+              <span style={{ fontWeight: "bold", color: "#111827" }}>{taskStats.inProgress}</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <ListTodo className="w-5 h-5 text-blue-600" />
-                <span className="text-gray-700">To-Do</span>
-              </div>
-              <span className="font-bold text-gray-900">{taskStats.todo}</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px",
+                backgroundColor: "#eff6ff",
+                borderRadius: "8px",
+              }}
+            >
+              <span style={{ color: "#374151" }}>To-Do</span>
+              <span style={{ fontWeight: "bold", color: "#111827" }}>{taskStats.todo}</span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Tasks Section */}
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: "12px",
+          boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+          padding: "24px",
+          marginBottom: "32px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#111827", marginTop: 0, marginBottom: 0 }}>
+            Project Tasks
+          </h2>
+          <button
+            onClick={() => navigate("/create")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "10px 16px",
+              backgroundColor: "#16a34a",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "600",
+              transition: "background-color 0.3s",
+            }}
+            onMouseEnter={(e) => (e.target.style.backgroundColor = "#15803d")}
+            onMouseLeave={(e) => (e.target.style.backgroundColor = "#16a34a")}
+          >
+            <Plus size={18} /> Add Task
+          </button>
+        </div>
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                <th
+                  style={{ textAlign: "left", padding: "12px", color: "#6b7280", fontWeight: "600", fontSize: "14px" }}
+                >
+                  Task
+                </th>
+                <th
+                  style={{ textAlign: "left", padding: "12px", color: "#6b7280", fontWeight: "600", fontSize: "14px" }}
+                >
+                  Status
+                </th>
+                <th
+                  style={{ textAlign: "left", padding: "12px", color: "#6b7280", fontWeight: "600", fontSize: "14px" }}
+                >
+                  Priority
+                </th>
+                <th
+                  style={{ textAlign: "left", padding: "12px", color: "#6b7280", fontWeight: "600", fontSize: "14px" }}
+                >
+                  Assignee
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {project.tasks.map((task) => (
+                <tr key={task.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                  <td style={{ padding: "12px", color: "#111827", fontSize: "14px" }}>{task.title}</td>
+                  <td style={{ padding: "12px" }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "6px 12px",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        backgroundColor: getStatusColor(task.status).bg,
+                        color: getStatusColor(task.status).text,
+                      }}
+                    >
+                      {task.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: "12px" }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "6px 12px",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        backgroundColor: getPriorityColor(task.priority).bg,
+                        color: getPriorityColor(task.priority).text,
+                      }}
+                    >
+                      {task.priority}
+                    </span>
+                  </td>
+                  <td style={{ padding: "12px", color: "#111827", fontSize: "14px" }}>{task.assignee}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Attachments Section */}
       {project.attachments.length > 0 && (
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Attachments</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          style={{
+            backgroundColor: "white",
+            borderRadius: "12px",
+            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            padding: "24px",
+            marginBottom: "32px",
+          }}
+        >
+          <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#111827", marginTop: 0, marginBottom: "16px" }}>
+            Attachments
+          </h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
             {project.attachments.map((attachment) => (
               <div
                 key={attachment.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "16px",
+                  backgroundColor: "#f9fafb",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb",
+                  transition: "box-shadow 0.3s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 10px 15px rgba(0,0,0,0.1)")}
+                onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
               >
-                <div className="flex items-center gap-3 flex-1">
-                  <span className="text-sm font-medium text-blue-600 w-12">{getFileIcon(attachment.type)}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{attachment.name}</p>
-                    <p className="text-xs text-gray-500">{attachment.size} KB</p>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
+                  <span style={{ fontSize: "14px", fontWeight: "600", color: "#2563eb", width: "48px" }}>
+                    {getFileIcon(attachment.type)}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        color: "#111827",
+                        margin: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {attachment.name}
+                    </p>
+                    <p style={{ fontSize: "12px", color: "#6b7280", margin: "4px 0 0 0" }}>{attachment.size} KB</p>
                   </div>
                 </div>
-                <div className="flex gap-2 ml-2">
+                <div style={{ display: "flex", gap: "8px", marginLeft: "8px" }}>
                   <button
                     onClick={() => handleDownloadAttachment(attachment)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "8px",
+                      color: "#2563eb",
+                      transition: "color 0.3s",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    onMouseEnter={(e) => (e.target.style.color = "#1d4ed8")}
+                    onMouseLeave={(e) => (e.target.style.color = "#2563eb")}
                     title="Download"
                   >
                     <Download size={18} />
                   </button>
                   <button
                     onClick={() => handleDeleteAttachment(attachment.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "8px",
+                      color: "#dc2626",
+                      transition: "color 0.3s",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    onMouseEnter={(e) => (e.target.style.color = "#b91c1c")}
+                    onMouseLeave={(e) => (e.target.style.color = "#dc2626")}
                     title="Delete"
                   >
                     <Trash2 size={18} />
@@ -346,126 +588,265 @@ const ProjectDetails = () => {
       )}
 
       {/* Team Members */}
-      <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Team Members</h2>
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: "12px",
+          boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+          padding: "24px",
+          marginBottom: "32px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#111827", margin: 0 }}>Team Members</h2>
           <button
             onClick={() => setShowAssignModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "10px 16px",
+              backgroundColor: "#2563eb",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "600",
+              transition: "background-color 0.3s",
+            }}
+            onMouseEnter={(e) => (e.target.style.backgroundColor = "#1d4ed8")}
+            onMouseLeave={(e) => (e.target.style.backgroundColor = "#2563eb")}
           >
-            <Users className="w-4 h-4" />
             Assign Members
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "16px" }}>
           {project.teamMembers.map((member) => (
-            <div key={member.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                {member.avatar}
+            <div
+              key={member.id}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "8px",
+                padding: "16px",
+                backgroundColor: "#f9fafb",
+                borderRadius: "8px",
+                border: "1px solid #e5e7eb",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  backgroundColor: "#2563eb",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                }}
+              >
+                {member.name.charAt(0).toUpperCase()}
               </div>
-              <div>
-                <p className="font-medium text-gray-900 text-sm">{member.name}</p>
-                <p className="text-xs text-gray-500">{member.role}</p>
-              </div>
+              <p style={{ fontWeight: "500", color: "#111827", margin: 0, fontSize: "14px" }}>{member.name}</p>
+              <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>{member.role}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Tasks List */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Project Tasks</h2>
-          <button
-            onClick={() => navigate("/create")}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Add Task
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-gray-600 font-medium text-sm">Task</th>
-                <th className="text-left py-3 px-4 text-gray-600 font-medium text-sm">Status</th>
-                <th className="text-left py-3 px-4 text-gray-600 font-medium text-sm">Priority</th>
-                <th className="text-left py-3 px-4 text-gray-600 font-medium text-sm">Assignee</th>
-              </tr>
-            </thead>
-            <tbody>
-              {project.tasks.map((task) => (
-                <tr
-                  key={task.id}
-                  onClick={() => navigate(`/task/${task.id}`)}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  <td className="py-3 px-4 text-gray-900">{task.title}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                      {task.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                      {task.priority}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">{task.assignee}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       {/* Assign Members Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-blue-100 bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Assign Members</h3>
-              <button onClick={() => setShowAssignModal(false)} className="text-gray-500 hover:text-gray-700">
-                <X className="w-5 h-5" />
-              </button>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+          onClick={() => setShowAssignModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "12px",
+              padding: "32px",
+              maxWidth: "600px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#111827", marginTop: 0, marginBottom: "16px" }}>
+              Assign Team Members
+            </h2>
+
+            <div style={{ marginBottom: "24px" }}>
+              <label
+                style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#374151", marginBottom: "8px" }}
+              >
+                Search Members
+              </label>
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={memberSearchInput}
+                onChange={(e) => setMemberSearchInput(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
             </div>
 
-            {/* Members List */}
-            <div className="space-y-3 mb-6 max-h-96 overflow-y-auto">
-              {availableMembers.map((member) => (
-                <label
-                  key={member.id}
-                  className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "24px" }}>
+              <div>
+                <h3
+                  style={{ fontSize: "14px", fontWeight: "600", color: "#374151", marginTop: 0, marginBottom: "12px" }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedMembers.some((m) => m.id === member.id)}
-                    onChange={() => toggleMemberSelection(member)}
-                    className="w-4 h-4 text-blue-900 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <div className="w-8 h-8 bg-blue-900 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {member.avatar}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 text-sm">{member.name}</p>
-                    <p className="text-xs text-gray-500">{member.role}</p>
-                  </div>
-                </label>
-              ))}
+                  Available Members
+                </h3>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                    maxHeight: "300px",
+                    overflowY: "auto",
+                  }}
+                >
+                  {filteredMembers.length > 0 ? (
+                    filteredMembers.map((member) => (
+                      <button
+                        key={member.id}
+                        onClick={() => handleAddMember(member)}
+                        style={{
+                          padding: "12px",
+                          backgroundColor: "#f3f4f6",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          fontSize: "14px",
+                          color: "#111827",
+                          transition: "background-color 0.3s",
+                        }}
+                        onMouseEnter={(e) => (e.target.style.backgroundColor = "#e5e7eb")}
+                        onMouseLeave={(e) => (e.target.style.backgroundColor = "#f3f4f6")}
+                      >
+                        {member.name}
+                      </button>
+                    ))
+                  ) : (
+                    <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>No members available</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3
+                  style={{ fontSize: "14px", fontWeight: "600", color: "#374151", marginTop: 0, marginBottom: "12px" }}
+                >
+                  Selected Members ({selectedMembers.length})
+                </h3>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                    maxHeight: "300px",
+                    overflowY: "auto",
+                  }}
+                >
+                  {selectedMembers.length > 0 ? (
+                    selectedMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px",
+                          backgroundColor: "#eff6ff",
+                          border: "1px solid #bfdbfe",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <span style={{ fontSize: "14px", color: "#111827" }}>{member.name}</span>
+                        <button
+                          onClick={() => handleRemoveMember(member.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#dc2626",
+                            cursor: "pointer",
+                            fontSize: "16px",
+                            padding: 0,
+                          }}
+                          onMouseEnter={(e) => (e.target.style.color = "#b91c1c")}
+                          onMouseLeave={(e) => (e.target.style.color = "#dc2626")}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>No members selected</p>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div style={{ display: "flex", gap: "12px", borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
               <button
                 onClick={handleSaveMembers}
-                className="flex-1 bg-blue-900 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-all"
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  backgroundColor: "#2563eb",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  transition: "background-color 0.3s",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#1d4ed8")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#2563eb")}
               >
-                Save
+                Save Members
               </button>
               <button
                 onClick={() => setShowAssignModal(false)}
-                className="flex-1 bg-gray-200 text-gray-900 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-all"
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  backgroundColor: "#e5e7eb",
+                  color: "#374151",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  transition: "background-color 0.3s",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#d1d5db")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#e5e7eb")}
               >
                 Cancel
               </button>
@@ -478,4 +859,3 @@ const ProjectDetails = () => {
 }
 
 export default ProjectDetails
-
