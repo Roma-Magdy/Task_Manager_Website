@@ -46,7 +46,6 @@ class UserModel {
     );
     return result;
   }
-
   // Get all users
   static async getAllUsers() {
     const [rows] = await db.execute(

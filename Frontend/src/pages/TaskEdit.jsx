@@ -404,7 +404,6 @@ export default function TaskEdit() {
       setAttachments(prev => prev.filter(att => att.id !== attachmentId));
     }
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
