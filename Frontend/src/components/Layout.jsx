@@ -160,15 +160,17 @@ import { Link, useLocation, Outlet, useNavigate } from "react-router-dom"
 import { LayoutDashboard, FolderKanban, ListChecks, LogOut, Menu, X, User } from "lucide-react"
 import { NotificationDropdown } from "../components/Notification"
 import { NotificationContext } from "../context/NotificationContext"
+import { useAuth } from "../context/AuthContext"
 
 const Layout = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { unreadCount } = useContext(NotificationContext)
+  const { logout } = useAuth()
 
   const handleLogout = async () => {
-    navigate("/login")
+    logout()
   }
 
   const navItems = [

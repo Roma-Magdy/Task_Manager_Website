@@ -7,7 +7,8 @@ import Button from "../components/Button";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
-import { toast } from "sonner"; // Assuming you have sonner installed from your App.jsx
+import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
 
 // Validation schemas
 const loginSchema = yup.object({
@@ -26,6 +27,7 @@ const signupSchema = yup.object({
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
 
   // Detect current URL mode
   const isSignupURL = location.pathname === "/sign-up";
@@ -61,9 +63,8 @@ const Login = () => {
       } else {
         toast.success("Login successful!");
         
-        // Save user data & token
-        localStorage.setItem("user", JSON.stringify(response.data));
-        localStorage.setItem("token", response.data.token);
+        // Use AuthContext to handle login
+        login(response.data);
         
         // Redirect to Dashboard
         navigate("/dashboard");

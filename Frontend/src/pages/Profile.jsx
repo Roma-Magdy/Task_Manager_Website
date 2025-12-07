@@ -3,7 +3,7 @@ import { Edit2, Mail, User, ArrowLeft, Check, Bell, Lock } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import * as Yup from "yup"
-import axios from "axios"
+import axios from "../utils/axios"
 import { toast } from "sonner"
 import "../styles/profile.css"
 
@@ -71,8 +71,7 @@ export default function Profile() {
             return
         }
 
-        const config = { headers: { Authorization: `Bearer ${token}` } }
-        const { data } = await axios.get("http://localhost:5000/api/users/profile", config)
+        const { data } = await axios.get("/users/profile")
 
         setFormData({
           email: data.email || "",
@@ -107,16 +106,13 @@ export default function Profile() {
     try {
       await profileValidationSchema.validate(formData, { abortEarly: false })
       
-      const token = localStorage.getItem("token")
-      const config = { headers: { Authorization: `Bearer ${token}` } }
-
       const payload = { fullName: formData.fullName }
       // Only add password to payload if it's not empty
       if (formData.password) {
           payload.password = formData.password
       }
 
-      await axios.put("http://localhost:5000/api/users/profile", payload, config)
+      await axios.put("/users/profile", payload)
 
       setErrors({})
       setSuccessMessage("Profile updated successfully!")
@@ -142,9 +138,7 @@ export default function Profile() {
   // 3. Handle Preferences Save
   const savePreferencesToBackend = async (newPrefs) => {
       try {
-        const token = localStorage.getItem("token")
-        const config = { headers: { Authorization: `Bearer ${token}` } }
-        await axios.put("http://localhost:5000/api/users/profile/preferences", newPrefs, config)
+        await axios.put("/users/profile/preferences", newPrefs)
       } catch (error) {
           console.error("Failed to save preferences", error)
           toast.error("Failed to save settings")
