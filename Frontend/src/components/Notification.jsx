@@ -1,32 +1,82 @@
 
-import { useState, useContext } from "react"
+import { useState, useContext, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Bell, X, Check, AlertCircle, CheckCircle, Zap } from "lucide-react"
+import { Bell, X, Check, AlertCircle, CheckCircle, MessageSquare, Paperclip, FolderOpen } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { NotificationContext } from "../context/NotificationContext"
+import axios from "../utils/axios"
+import { toast } from "sonner"
 
 export const NotificationDropdown = ({ isDarkMode }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
   const navigate = useNavigate()
-  const { notifications, unreadCount, markAsRead, deleteNotification, notificationPreferences } =
-    useContext(NotificationContext)
+  const { unreadCount, refreshUnreadCount } = useContext(NotificationContext)
 
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case "deadline":
-        return <AlertCircle className="w-5 h-5 text-red-500" />
-      case "reminder":
-        return <Zap className="w-5 h-5 text-yellow-500" />
-      case "task-assigned":
+  useEffect(() => {
+    if (isOpen) {
+      fetchRecentNotifications()
+    }
+  }, [isOpen])
+
+  const fetchRecentNotifications = async () => {
+    try {
+      const response = await axios.get("/notifications", { params: { limit: 5 } })
+      if (response.data.success) {
+        setNotifications(response.data.data)
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error)
+    }
+  }
+
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      const response = await axios.put(`/notifications/${notificationId}/read`)
+      if (response.data.success) {
+        setNotifications(notifications.map(n => 
+          n.notification_id === notificationId ? { ...n, is_read: true } : n
+        ))
+        refreshUnreadCount()
+      }
+    } catch (error) {
+      console.error("Error marking as read:", error)
+      toast.error("Failed to mark as read")
+    }
+  }
+
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      const response = await axios.delete(`/notifications/${notificationId}`)
+      if (response.data.success) {
+        setNotifications(notifications.filter(n => n.notification_id !== notificationId))
+        refreshUnreadCount()
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error)
+      toast.error("Failed to delete notification")
+    }
+  }
+
+  const getNotificationIcon = (eventType) => {
+    switch (eventType) {
+      case "task_status_changed":
+        return <AlertCircle className="w-5 h-5 text-yellow-500" />
+      case "task_assigned":
         return <CheckCircle className="w-5 h-5 text-blue-500" />
-      case "project-assigned":
-        return <CheckCircle className="w-5 h-5 text-green-500" />
+      case "new_comment":
+        return <MessageSquare className="w-5 h-5 text-green-500" />
+      case "new_attachment":
+        return <Paperclip className="w-5 h-5 text-purple-500" />
+      case "project_update":
+        return <FolderOpen className="w-5 h-5 text-orange-500" />
       default:
         return <Bell className="w-5 h-5 text-gray-500" />
     }
   }
 
-  const formatTime = (date) => {
+  const formatTime = (dateString) => {
+    const date = new Date(dateString)
     const now = new Date()
     const diffMs = now - date
     const diffMins = Math.floor(diffMs / 60000)
@@ -36,10 +86,9 @@ export const NotificationDropdown = ({ isDarkMode }) => {
     if (diffMins < 1) return "Just now"
     if (diffMins < 60) return `${diffMins}m ago`
     if (diffHours < 24) return `${diffHours}h ago`
-    return `${diffDays}d ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
-
-  const recentNotifications = notifications.slice(0, 5)
 
   return (
     <div className="relative">
@@ -99,40 +148,45 @@ export const NotificationDropdown = ({ isDarkMode }) => {
 
             {/* Notifications List */}
             <div className="max-h-96 overflow-y-auto">
-              {recentNotifications.length > 0 ? (
-                recentNotifications.map((notif) => (
+              {notifications.length > 0 ? (
+                notifications.map((notif) => (
                   <motion.div
-                    key={notif.id}
+                    key={notif.notification_id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className={`p-4 border-b flex gap-3 hover:bg-opacity-50 transition-colors ${
+                    className={`p-4 border-b flex gap-3 hover:bg-opacity-50 transition-colors cursor-pointer ${
                       isDarkMode
-                        ? `border-slate-700 ${notif.read ? "bg-slate-800" : "bg-slate-700/50"}`
-                        : `border-blue-50 ${notif.read ? "bg-white" : "bg-blue-50"}`
+                        ? `border-slate-700 ${notif.is_read ? "bg-slate-800" : "bg-slate-700/50"}`
+                        : `border-blue-50 ${notif.is_read ? "bg-white" : "bg-blue-50"}`
                     }`}
+                    onClick={() => {
+                      if (notif.task_id) {
+                        navigate(`/tasks/${notif.task_id}`)
+                      } else if (notif.project_id) {
+                        navigate(`/projects/${notif.project_id}`)
+                      }
+                      setIsOpen(false)
+                    }}
                   >
                     {/* Icon */}
-                    <div className="shrink-0 mt-1">{getNotificationIcon(notif.type)}</div>
+                    <div className="shrink-0 mt-1">{getNotificationIcon(notif.event_type)}</div>
 
                     {/* Content */}
                     <div className="grow min-w-0">
-                      <p className={`font-semibold text-sm ${isDarkMode ? "text-white" : "text-foreground"}`}>
-                        {notif.title}
-                      </p>
-                      <p className={`text-sm truncate ${isDarkMode ? "text-slate-300" : "text-foreground/60"}`}>
+                      <p className={`text-sm ${isDarkMode ? "text-slate-300" : "text-foreground/80"}`}>
                         {notif.message}
                       </p>
                       <p className={`text-xs mt-1 ${isDarkMode ? "text-slate-400" : "text-foreground/40"}`}>
-                        {formatTime(notif.timestamp)}
+                        {formatTime(notif.created_at)}
                       </p>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2 shrink-0">
-                      {!notif.read && (
+                    <div className="flex gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {!notif.is_read && (
                         <motion.button
                           whileHover={{ scale: 1.1 }}
-                          onClick={() => markAsRead(notif.id)}
+                          onClick={() => handleMarkAsRead(notif.notification_id)}
                           className="p-1 rounded hover:bg-blue-900/20 transition-colors"
                         >
                           <Check className="w-4 h-4 text-blue-900" />
@@ -140,7 +194,7 @@ export const NotificationDropdown = ({ isDarkMode }) => {
                       )}
                       <motion.button
                         whileHover={{ scale: 1.1 }}
-                        onClick={() => deleteNotification(notif.id)}
+                        onClick={() => handleDeleteNotification(notif.notification_id)}
                         className="p-1 rounded hover:bg-red-600/20 transition-colors"
                       >
                         <X className="w-4 h-4 text-red-600" />
@@ -151,7 +205,7 @@ export const NotificationDropdown = ({ isDarkMode }) => {
               ) : (
                 <div className={`p-8 text-center ${isDarkMode ? "text-slate-400" : "text-foreground/60"}`}>
                   <Bell className="w-12 h-12 mx-auto opacity-30 mb-2" />
-                  <p>{notificationPreferences.enabled ? "No notifications yet" : "Notifications disabled"}</p>
+                  <p>No notifications yet</p>
                 </div>
               )}
             </div>

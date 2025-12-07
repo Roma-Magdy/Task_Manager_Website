@@ -1,41 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, ListTodo, TrendingUp, Calendar } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import axios from '../utils/axios';
+import { toast } from 'sonner';
 
 const Dashboard = () => {
-  // Mock data for statistics
-  const stats = [
-    { label: 'To-Do', value: 24, icon: ListTodo, color: 'bg-blue-500', textColor: 'text-blue-500' },
-    { label: 'In Progress', value: 12, icon: Clock, color: 'bg-yellow-500', textColor: 'text-yellow-500' },
-    { label: 'Completed', value: 48, icon: CheckCircle, color: 'bg-green-500', textColor: 'text-green-500' },
-    { label: 'Total Projects', value: 8, icon: TrendingUp, color: 'bg-purple-500', textColor: 'text-purple-500' },
-  ];
+  const [stats, setStats] = useState([
+    { label: 'To-Do', value: 0, icon: ListTodo, color: 'bg-blue-500', textColor: 'text-blue-500' },
+    { label: 'In Progress', value: 0, icon: Clock, color: 'bg-yellow-500', textColor: 'text-yellow-500' },
+    { label: 'Completed', value: 0, icon: CheckCircle, color: 'bg-green-500', textColor: 'text-green-500' },
+    { label: 'Total Projects', value: 0, icon: TrendingUp, color: 'bg-purple-500', textColor: 'text-purple-500' },
+  ]);
+  const [weeklyData, setWeeklyData] = useState([]);
+  const [taskDistribution, setTaskDistribution] = useState([]);
+  const [recentTasks, setRecentTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data for productivity chart
-  const weeklyData = [
-    { day: 'Mon', completed: 8, created: 12 },
-    { day: 'Tue', completed: 12, created: 10 },
-    { day: 'Wed', completed: 6, created: 8 },
-    { day: 'Thu', completed: 15, created: 14 },
-    { day: 'Fri', completed: 10, created: 9 },
-    { day: 'Sat', completed: 4, created: 5 },
-    { day: 'Sun', completed: 3, created: 4 },
-  ];
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  // Mock data for task distribution
-  const taskDistribution = [
-    { name: 'To-Do', value: 24, color: '#3b82f6' },
-    { name: 'In Progress', value: 12, color: '#eab308' },
-    { name: 'Completed', value: 48, color: '#22c55e' },
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all dashboard data
+      const [statsRes, weeklyRes, distributionRes, tasksRes] = await Promise.all([
+        axios.get('/dashboard/stats'),
+        axios.get('/dashboard/weekly-productivity'),
+        axios.get('/dashboard/task-distribution'),
+        axios.get('/dashboard/recent-tasks')
+      ]);
 
-  // Mock recent tasks
-  const recentTasks = [
-    { id: 1, title: 'Design homepage mockup', status: 'In Progress', priority: 'High', dueDate: '2024-12-01' },
-    { id: 2, title: 'Fix login bug', status: 'To-Do', priority: 'Critical', dueDate: '2024-11-30' },
-    { id: 3, title: 'Update documentation', status: 'Completed', priority: 'Low', dueDate: '2024-11-28' },
-    { id: 4, title: 'Code review for PR #123', status: 'In Progress', priority: 'Medium', dueDate: '2024-12-02' },
-  ];
+      // Update stats
+      if (statsRes.data.success) {
+        const data = statsRes.data.data;
+        setStats([
+          { label: 'To-Do', value: data.todo, icon: ListTodo, color: 'bg-blue-500', textColor: 'text-blue-500' },
+          { label: 'In Progress', value: data.inProgress, icon: Clock, color: 'bg-yellow-500', textColor: 'text-yellow-500' },
+          { label: 'Completed', value: data.completed, icon: CheckCircle, color: 'bg-green-500', textColor: 'text-green-500' },
+          { label: 'Total Projects', value: data.totalProjects, icon: TrendingUp, color: 'bg-purple-500', textColor: 'text-purple-500' },
+        ]);
+      }
+
+      // Update weekly productivity
+      if (weeklyRes.data.success) {
+        setWeeklyData(weeklyRes.data.data);
+      }
+
+      // Update task distribution
+      if (distributionRes.data.success) {
+        setTaskDistribution(distributionRes.data.data);
+      }
+
+      // Update recent tasks
+      if (tasksRes.data.success) {
+        setRecentTasks(tasksRes.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No due date';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
 
   const getPriorityColor = (priority) => {
     const colors = {
@@ -55,6 +89,14 @@ const Dashboard = () => {
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -158,7 +200,7 @@ const Dashboard = () => {
                   <td className="py-3 px-4 text-gray-600 text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
-                      {task.dueDate}
+                      {formatDate(task.dueDate)}
                     </div>
                   </td>
                 </tr>

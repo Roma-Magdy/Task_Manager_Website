@@ -649,7 +649,7 @@ const ProjectDetails = () => {
                   <span style={{ fontSize: "14px", fontWeight: "600", color: "#2563eb", width: "48px" }}>
                     {getFileIcon(attachment.type)}
                   </span>
-                  <div style={{ flex: 1, minWidth: 0, overflow: "hidden", minWidth: "fit-content" }}>
+                  <div style={{ flex: 1, overflow: "hidden", minWidth: "fit-content" }}>
                     <p
                       style={{
                         fontSize: "14px",

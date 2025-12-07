@@ -1,212 +1,71 @@
-// import { createContext, useState, useCallback } from "react"
+import { createContext, useState, useCallback, useEffect } from "react";
+import axios from "../utils/axios";
 
-// export const NotificationContext = createContext()
-
-// export const NotificationProvider = ({ children }) => {
-//   const [notifications, setNotifications] = useState([
-//     {
-//       id: 1,
-//       type: "deadline",
-//       title: "Task Due Today",
-//       message: "Complete project proposal",
-//       timestamp: new Date(Date.now() - 5 * 60000),
-//       read: false,
-//     },
-//     {
-//       id: 2,
-//       type: "reminder",
-//       title: "Incomplete Task",
-//       message: "Finish design mockups",
-//       timestamp: new Date(Date.now() - 30 * 60000),
-//       read: false,
-//     },
-//     {
-//       id: 3,
-//       type: "task-assigned",
-//       title: "New Task Assigned",
-//       message: 'You have been assigned "Review Budget"',
-//       timestamp: new Date(Date.now() - 2 * 3600000),
-//       read: true,
-//     },
-//   ])
-
-//   const [notificationPreferences, setNotificationPreferences] = useState({
-//     enabled: true,
-//     somethingDue: true,
-//     taskNotDone: true,
-//     taskAssigned: true,
-//     projectAssigned: true,
-//   })
-
-//   const addNotification = useCallback((notification) => {
-//     const newNotification = {
-//       id: Date.now(),
-//       timestamp: new Date(),
-//       read: false,
-//       ...notification,
-//     }
-//     setNotifications((prev) => [newNotification, ...prev])
-//   }, [])
-
-//   const markAsRead = useCallback((id) => {
-//     setNotifications((prev) => prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif)))
-//   }, [])
-
-//   const markAllAsRead = useCallback(() => {
-//     setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })))
-//   }, [])
-
-//   const deleteNotification = useCallback((id) => {
-//     setNotifications((prev) => prev.filter((notif) => notif.id !== id))
-//   }, [])
-
-//   const updatePreferences = useCallback(
-//     (newPreferences) => {
-//       setNotificationPreferences((prev) => ({
-//         ...prev,
-//         ...newPreferences,
-//       }))
-//       localStorage.setItem("notificationPreferences", JSON.stringify({ ...notificationPreferences, ...newPreferences }))
-//     },
-//     [notificationPreferences],
-//   )
-
-//   const unreadCount = notifications.filter((n) => !n.read).length
-
-//   return (
-//     <NotificationContext.Provider
-//       value={{
-//         notifications,
-//         notificationPreferences,
-//         addNotification,
-//         markAsRead,
-//         markAllAsRead,
-//         deleteNotification,
-//         updatePreferences,
-//         unreadCount,
-//       }}
-//     >
-//       {children}
-//     </NotificationContext.Provider>
-//   )
-// }
-
-"use client"
-
-import { createContext, useState, useCallback, useEffect } from "react"
-
-export const NotificationContext = createContext()
+export const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "deadline",
-      title: "Task Due Today",
-      message: "Complete project proposal",
-      timestamp: new Date(Date.now() - 5 * 60000),
-      read: false,
-    },
-    {
-      id: 2,
-      type: "reminder",
-      title: "Incomplete Task",
-      message: "Finish design mockups",
-      timestamp: new Date(Date.now() - 30 * 60000),
-      read: false,
-    },
-    {
-      id: 3,
-      type: "task-assigned",
-      title: "New Task Assigned",
-      message: 'You have been assigned "Review Budget"',
-      timestamp: new Date(Date.now() - 2 * 3600000),
-      read: true,
-    },
-  ])
-
+  const [unreadCount, setUnreadCount] = useState(0);
   const [notificationPreferences, setNotificationPreferences] = useState({
     enabled: true,
     somethingDue: true,
     taskNotDone: true,
     taskAssigned: true,
     projectAssigned: true,
-  })
+  });
 
   useEffect(() => {
-    const saved = localStorage.getItem("notificationPreferences")
+    const saved = localStorage.getItem("notificationPreferences");
     if (saved) {
-      setNotificationPreferences(JSON.parse(saved))
+      setNotificationPreferences(JSON.parse(saved));
     }
-  }, [])
+    
+    // Fetch unread count on mount
+    fetchUnreadCount();
 
-  const addNotification = useCallback((notification) => {
-    const newNotification = {
-      id: Date.now(),
-      timestamp: new Date(),
-      read: false,
-      ...notification,
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const response = await axios.get("/notifications/unread-count");
+      if (response.data.success) {
+        setUnreadCount(response.data.data.count);
+      }
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
     }
-    setNotifications((prev) => [newNotification, ...prev])
-  }, [])
+  };
 
-  const markAsRead = useCallback((id) => {
-    setNotifications((prev) => prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif)))
-  }, [])
-
-  const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })))
-  }, [])
-
-  const deleteNotification = useCallback((id) => {
-    setNotifications((prev) => prev.filter((notif) => notif.id !== id))
-  }, [])
+  const refreshUnreadCount = useCallback(() => {
+    fetchUnreadCount();
+  }, []);
 
   const updatePreferences = useCallback((newPreferences) => {
     setNotificationPreferences((prev) => {
-      const updated = { ...prev, ...newPreferences }
-      localStorage.setItem("notificationPreferences", JSON.stringify(updated))
-      return updated
-    })
-  }, [])
-
-  const getFilteredNotifications = useCallback(() => {
-    if (!notificationPreferences.enabled) return []
-
-    return notifications.filter((notif) => {
-      switch (notif.type) {
-        case "deadline":
-          return notificationPreferences.somethingDue
-        case "reminder":
-          return notificationPreferences.taskNotDone
-        case "task-assigned":
-          return notificationPreferences.taskAssigned
-        case "project-assigned":
-          return notificationPreferences.projectAssigned
-        default:
-          return true
-      }
-    })
-  }, [notifications, notificationPreferences])
-
-  const filteredNotifications = getFilteredNotifications()
-  const unreadCount = filteredNotifications.filter((n) => !n.read).length
+      const updated = { ...prev, ...newPreferences };
+      localStorage.setItem("notificationPreferences", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   return (
     <NotificationContext.Provider
       value={{
-        notifications: filteredNotifications,
-        allNotifications: notifications,
-        notificationPreferences,
-        addNotification,
-        markAsRead,
-        markAllAsRead,
-        deleteNotification,
-        updatePreferences,
         unreadCount,
+        refreshUnreadCount,
+        notificationPreferences,
+        updatePreferences,
       }}
     >
       {children}
     </NotificationContext.Provider>
-  )
-}
+  );
+};

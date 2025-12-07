@@ -1,25 +1,27 @@
 const express = require('express');
 const router = express.Router();
+const tasksController = require('../controllers/tasksController');
+const protect = require('../middlewares/authMiddleware');
 
-// Placeholder routes for tasks
-router.get('/', (req, res) => {
-  res.json({ success: true, message: 'Get all tasks', data: [] });
-});
+// All routes are protected
+router.use(protect);
 
-router.post('/', (req, res) => {
-  res.json({ success: true, message: 'Create task', data: {} });
-});
+// Task CRUD
+router.get('/', tasksController.getAllTasks);
+router.post('/', tasksController.createTask);
+router.get('/:id', tasksController.getTaskById);
+router.put('/:id', tasksController.updateTask);
+router.delete('/:id', tasksController.deleteTask);
 
-router.get('/:id', (req, res) => {
-  res.json({ success: true, message: 'Get task by id', data: {} });
-});
+// Comments
+router.post('/:id/comments', tasksController.addComment);
+router.delete('/:id/comments/:commentId', tasksController.deleteComment);
 
-router.put('/:id', (req, res) => {
-  res.json({ success: true, message: 'Update task', data: {} });
-});
+// Attachments
+router.post('/:id/attachments', tasksController.addAttachment);
+router.delete('/:id/attachments/:attachmentId', tasksController.deleteAttachment);
 
-router.delete('/:id', (req, res) => {
-  res.json({ success: true, message: 'Delete task', data: {} });
-});
+// Get tasks by project
+router.get('/project/:projectId', tasksController.getTasksByProject);
 
 module.exports = router;
